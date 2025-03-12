@@ -299,6 +299,9 @@ void InitSettings(void) {
 	system("amixer sset 'Headphone' 0"); // 100%
 	system("amixer sset 'digital volume' 0"); // 100%
 	system("amixer sset 'DAC Swap' Off"); // Fix L/R channels
+	// need to add bluetooth controls here
+	// amixer -D bluealsa controls grab mixer name 
+	// system("amixer sset 'mixername' 0"); // Fix L/R channels
 	// volume is set with 'digital volume'
 
 	// This will implicitly update all other settings based on FN switch state
@@ -683,6 +686,33 @@ void SetRawVolume(int val) { // 0-100
 	// Setting just 'digital volume' to 0 still plays audio quietly. Also set DAC volume to 0
 	if (val == 0) system("amixer sset 'DAC volume' 0 &> /dev/null");
 	else system("amixer sset 'DAC volume' 160 &> /dev/null"); // 160=0dB=max for 'DAC volume'
+		// need to add bluetooth controls here
+	// amixer -D bluealsa controls grab mixer name 
+	char mixer_name[256];  // Buffer to store the extracted mixer name
+    FILE *fp;
+
+    // Run the command and open a pipe to read the output
+    fp = popen("amixer -D bluealsa scontrols 2>/dev/null | grep \"Simple mixer control\" | awk -F\"'\" '{print $2}'", "r");
+
+
+    // Read the first line of output into the variable
+    if (fgets(mixer_name, sizeof(mixer_name), fp) != NULL) {
+        // Remove the newline character at the end (if present)
+        mixer_name[strcspn(mixer_name, "\n")] = 0;
+        printf("Mixer Name wooo: %s\n", mixer_name);  // Print the extracted mixer name
+		printf("amixer -D bluealsa sset '%s' %i%% &> /dev/null",mixer_name, val);
+		sprintf(cmd,"amixer -D bluealsa sset '%s' %i%% &> /dev/null",mixer_name, val);
+		// sprintf(cmd, "amixer sset '%s' %i &> /dev/null",mixer_name, 100-val);
+		system(cmd);
+    } else {
+        printf("No mixer name found.\n");
+    }
+
+    pclose(fp);  // Close the pipe
+
+	
+	// system("amixer sset 'mixername' 0"); // Fix L/R channels
+	
 
 	// TODO: unfortunately doing it this way creating a linker nightmare
 	// struct mixer *mixer = mixer_open(0);

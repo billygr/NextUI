@@ -1750,7 +1750,7 @@ SDL_Color GFX_mapColor(uint32_t c)
 // to (try to) understand it 
 // better
 
-#define MAX_SAMPLE_RATE 48000
+#define MAX_SAMPLE_RATE 44100
 #define BATCH_SIZE 100
 #ifndef SAMPLES
 	#define SAMPLES 512 // default
@@ -2129,6 +2129,7 @@ void SND_init(double sample_rate, double frame_rate) { // plat_sound_init
 	LOG_info("SND_init\n");
 	currentreqfps = frame_rate;
 	SDL_InitSubSystem(SDL_INIT_AUDIO);
+	PLAT_setBluetoothaudio();
 
 	fps_counter = 0;
 	fps_buffer_index = 0;
