@@ -3560,12 +3560,13 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 	renderer.src = (void*)data;
 	renderer.dst = screen->pixels;
 	// LOG_info("video_refresh_callback: %ix%i@%i %ix%i@%i\n",width,height,pitch,screen->w,screen->h,screen->pitch);
-	if(firstframe) {
+	if(firstframe == 2) {
+	
+		// SDL_Surface * screendata = SDL_CreateRGBSurfaceWithFormatFrom(renderer.src, renderer.true_w, renderer.true_h, 32, renderer.src_p, SDL_PIXELFORMAT_RGBA8888);
+		SDL_Surface * screendata = GFX_captureRendererToSurface();
+		// LOG_info("Menu_loop:menu.bitmap %ix%i\n", menu.bitmap->w,menu.bitmap->h);
 		GFX_clearLayers(0);
 		GFX_clear(screen);
-		SDL_Surface * screendata = SDL_CreateRGBSurfaceWithFormatFrom(renderer.src, renderer.true_w, renderer.true_h, 32, renderer.src_p, SDL_PIXELFORMAT_RGBA8888);
-		// LOG_info("Menu_loop:menu.bitmap %ix%i\n", menu.bitmap->w,menu.bitmap->h);
-	
 		SDL_Surface* tmpSur = SDL_CreateRGBSurfaceWithFormat(0,DEVICE_WIDTH,DEVICE_HEIGHT,32,SDL_PIXELFORMAT_RGBA8888); 
 		SDL_FillRect(tmpSur, NULL, SDL_MapRGBA(tmpSur->format, 0, 0, 0, 255)); 
 	
@@ -3594,11 +3595,11 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 		SDL_FreeSurface(tmpSur);
 		SDL_FreeSurface(screendata);
 		GFX_clearLayers(0);
-		firstframe=0;
+		// firstframe=0;
 		SDL_PauseAudio(0);
 	
 	} 
-
+	firstframe++;
 	GFX_blitRenderer(&renderer);
 
 	screen_flip(screen);

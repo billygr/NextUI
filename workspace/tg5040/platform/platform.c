@@ -1262,7 +1262,7 @@ scaler_t PLAT_getScaler(GFX_Renderer* renderer) {
 
 void PLAT_blitRenderer(GFX_Renderer* renderer) {
 	vid.blit = renderer;
-	SDL_RenderClear(vid.renderer);
+	// SDL_RenderClear(vid.renderer);
 	resizeVideo(vid.blit->true_w,vid.blit->true_h,vid.blit->src_p);
 }
 
