@@ -322,6 +322,10 @@ void GFX_ApplyRoundedCorners16(SDL_Surface* surface, SDL_Rect* rect, int radius)
 void GFX_ApplyRoundedCorners_RGBA4444(SDL_Surface* surface, SDL_Rect* rect, int radius);
 void GFX_ApplyRoundedCorners_RGBA8888(SDL_Surface* surface, SDL_Rect* rect, int radius);
 void BlitRGBA4444toRGB565(SDL_Surface* src, SDL_Surface* dest, SDL_Rect* dest_rect);
+void GFX_animatePill(
+    int startY, int targetY, 
+    int duration
+);
 ///////////////////////////////
 
 typedef struct SND_Frame {
@@ -348,6 +352,20 @@ typedef struct LID_Context {
 	int is_open;
 } LID_Context;
 extern LID_Context lid;
+
+extern int frameready;
+typedef struct Pill {
+	SDL_Surface * sur;
+	SDL_Texture* moveTexture;
+	int x;
+	int y;
+	int w;
+	int h;
+} Pill;
+
+extern Pill selectionpill;
+
+void PLAT_drawPill();
 
 void PLAT_initLid(void);
 int PLAT_lidChanged(int* state);

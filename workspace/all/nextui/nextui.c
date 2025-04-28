@@ -2101,10 +2101,8 @@ int main (int argc, char *argv[]) {
 						SDL_Color text_color = uintToColour(THEME_COLOR4_255);
 
 						if (j == selected_row && animationdirection > 0) {
-							GFX_blitPillDark(ASSET_WHITE_PILL, screen, &(SDL_Rect){
-								SCALE1(BUTTON_MARGIN),SCALE1(targetY+PADDING), max_width, SCALE1(PILL_SIZE)
-							});
 							text_color = uintToColour(THEME_COLOR5_255);
+							selectionpill.y=SCALE1(targetY+PADDING);
 						}
 
 						SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, entry_name, text_color);
@@ -2142,26 +2140,30 @@ int main (int argc, char *argv[]) {
 							int max_width = MIN(available_width, text_width);
 							SDL_Color text_color = uintToColour(THEME_COLOR5_255);
 							SDL_Surface* text = TTF_RenderUTF8_Blended(font.large,  entry_unique ? entry_unique : entry_name, text_color);
-
+							GFX_drawOnLayer(text,SCALE1(BUTTON_MARGIN + BUTTON_PADDING),SCALE1(targetY+PADDING+4),max_width - SCALE1(BUTTON_PADDING*2),text->h,1.0f,1,4);
+							
 							is_scrolling = GFX_resetScrollText(font.large,display_name, max_width - SCALE1(BUTTON_PADDING*2));
-							SDL_Surface *pill = SDL_CreateRGBSurfaceWithFormat(
-								SDL_SWSURFACE, max_width, SCALE1(PILL_SIZE), FIXED_DEPTH, SDL_PIXELFORMAT_RGBA8888
-							);
-							GFX_blitPillDark(ASSET_WHITE_PILL, pill, &(SDL_Rect){
+							if(!selectionpill.sur)
+								selectionpill.sur = SDL_CreateRGBSurfaceWithFormat(
+									SDL_SWSURFACE, screen->w, SCALE1(PILL_SIZE), FIXED_DEPTH, SDL_PIXELFORMAT_RGBA8888
+								);
+							else
+								SDL_FillRect(selectionpill.sur, NULL, SDL_MapRGBA(selectionpill.sur->format, 0, 0, 0, 0));
+							
+							GFX_blitPillDark(ASSET_WHITE_PILL, selectionpill.sur, &(SDL_Rect){
 								0,0, max_width, SCALE1(PILL_SIZE)
 							});
 							if(animationdirection == 0)	{
 								GFX_flipHidden();
-								GFX_animateAndRevealSurfaces(
-									pill,text,
-									SCALE1(BUTTON_MARGIN), SCALE1(previousY+PADDING),SCALE1(BUTTON_MARGIN),SCALE1(targetY+PADDING),max_width,SCALE1(PILL_SIZE),
-									SCALE1(BUTTON_MARGIN + BUTTON_PADDING),SCALE1(targetY+PADDING+4),max_width - SCALE1(BUTTON_PADDING*2),text->h,
-									selected_row == remember_selection ? "none" : selected_row > remember_selection ? "up":"down",
-									CFG_getMenuAnimations() ? 40:10,255,255,255,0,1
-								);
+								selectionpill.x = SCALE1(BUTTON_MARGIN);
+								// selectionpill.y = SCALE1(targetY+PADDING);
+								selectionpill.w = max_width;
+								selectionpill.h = SCALE1(PILL_SIZE);
+								GFX_animatePill( SCALE1(previousY+PADDING),SCALE1(targetY+PADDING),3);
+								
 							} 
+					
 							SDL_FreeSurface(text);
-							SDL_FreeSurface(pill);
 						} 
 					}
 					remember_selection = selected_row;
@@ -2192,6 +2194,7 @@ int main (int argc, char *argv[]) {
 				animationdirection=0;
 			} 
 				
+				PLAT_drawPill();
 				GFX_flip(screen);
 			
 			
@@ -2199,7 +2202,7 @@ int main (int argc, char *argv[]) {
 			readytoscroll = 0;
 			
 		} else {
-
+			PLAT_drawPill();
 			// honestly this whole thing is here only for the scrolling text, I set it now to run this at 30fps which is enough for scrolling text, should move this to seperate animation function eventually
 			Uint32 now = SDL_GetTicks();
 			Uint32 frame_start = now;
@@ -2242,7 +2245,7 @@ int main (int argc, char *argv[]) {
 				const int frame_delay = 1000 / fps;
 				Uint32 frame_time = SDL_GetTicks() - frame_start;
 				if (frame_time < frame_delay) {
-					SDL_Delay(frame_delay - frame_time);
+					// SDL_Delay(frame_delay - frame_time);
 				}
 		}
 		

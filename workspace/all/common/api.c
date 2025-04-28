@@ -64,6 +64,7 @@ float currentbufferms = 20.0;
 LightSettings lightsDefault[MAX_LIGHTS];
 LightSettings lightsMuted[MAX_LIGHTS];
 LightSettings (*lights)[MAX_LIGHTS] = NULL;
+Pill selectionpill = {0};
 
 volatile int useAutoCpu;
 
@@ -1069,6 +1070,72 @@ SDL_Rect GFX_blitScaleToFill(SDL_Surface *src, SDL_Surface *dst)
 }
 
 ///////////////////////////////
+
+typedef struct {
+	int srcy;
+	int trgy;
+	int duration;
+} AnimationParams;
+
+
+
+static int stopThread=0;
+int frameready = 0;
+int animateInThread(void* arg) {
+    AnimationParams* params = (AnimationParams*)arg;
+
+    const int fps = 60;
+	const int frame_delay = 1000 / fps;
+	const int total_frames = params->duration;
+
+	for (int frame = 0; frame <= total_frames; ++frame) {
+	
+		float t = (float)frame / total_frames;
+		if (t > 1.0f) t = 1.0f;
+		
+		selectionpill.y = params->srcy + (int)((params->trgy - params->srcy) * t);
+		while (!frameready) {
+			if(stopThread) {
+				selectionpill.y = params->trgy;
+				break;
+			}
+			SDL_Delay(1); // tiny sleep to avoid CPU spinning 100%
+		}
+		frameready = 0; // reset for next wait
+	
+	}
+	free(params);
+    return 0; // Thread completed
+}
+
+
+static SDL_Thread* animationThread;
+void GFX_animatePill(
+    int startY, int targetY, 
+    int duration
+) {
+
+	if (animationThread) {
+		stopThread = 1;
+		SDL_WaitThread(animationThread, NULL);
+		animationThread = NULL;
+		stopThread = 0;
+		
+	}
+
+    AnimationParams* params = malloc(sizeof(AnimationParams));
+	params->srcy = startY;
+	params->trgy = targetY;
+	params->duration = duration;
+
+    // Start the animation in a new thread
+    animationThread = SDL_CreateThread(animateInThread, "AnimationThread", params);
+    if (!animationThread) {
+        printf("Failed to create animation thread: %s\n", SDL_GetError());
+        free(params);
+    }
+}
+
 void GFX_ApplyRoundedCorners16(SDL_Surface* surface, SDL_Rect* rect, int radius) {
     if (!surface || radius == 0) return;
 
