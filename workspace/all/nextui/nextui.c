@@ -2102,7 +2102,7 @@ int main (int argc, char *argv[]) {
 
 						if (j == selected_row && animationdirection > 0) {
 							text_color = uintToColour(THEME_COLOR5_255);
-							selectionpill.y=SCALE1(targetY+PADDING);
+								selectionpill.y=SCALE1(targetY+PADDING);
 						}
 
 						SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, entry_name, text_color);
@@ -2163,7 +2163,7 @@ int main (int argc, char *argv[]) {
 								
 							} 
 					
-							SDL_FreeSurface(text);
+							// SDL_FreeSurface(text);
 						} 
 					}
 					remember_selection = selected_row;
