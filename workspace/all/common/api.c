@@ -187,6 +187,7 @@ static int fps_counter = 0;
 double currentfps = 0.0;
 double currentreqfps = 0.0;
 int currentcpuspeed = 0;
+int currentcpucores = 0;
 double currentcpuse = 0;
 
 int currentshaderpass = 0;

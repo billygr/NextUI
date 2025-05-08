@@ -377,25 +377,23 @@ SDL_Surface* PLAT_initVideo(void) {
 	SDL_InitSubSystem(SDL_INIT_VIDEO);
 	SDL_ShowCursor(0);
 	
-	// SDL_version compiled;
-	// SDL_version linked;
-	// SDL_VERSION(&compiled);
-	// SDL_GetVersion(&linked);
-	// LOG_info("Compiled SDL version %d.%d.%d ...\n", compiled.major, compiled.minor, compiled.patch);
-	// LOG_info("Linked SDL version %d.%d.%d.\n", linked.major, linked.minor, linked.patch);
-	//
-	// LOG_info("Available video drivers:\n");
-	// for (int i=0; i<SDL_GetNumVideoDrivers(); i++) {
-	// 	LOG_info("- %s\n", SDL_GetVideoDriver(i));
-	// }
-	// LOG_info("Current video driver: %s\n", SDL_GetCurrentVideoDriver());
-	//
-	// LOG_info("Available render drivers:\n");
-	// for (int i=0; i<SDL_GetNumRenderDrivers(); i++) {
-	// 	SDL_RendererInfo info;
-	// 	SDL_GetRenderDriverInfo(i,&info);
-	// 	LOG_info("- %s\n", info.name);
-	// }
+	SDL_version compiled;
+	SDL_version linked;
+	SDL_VERSION(&compiled);
+	SDL_GetVersion(&linked);
+	LOG_info("Compiled SDL version %d.%d.%d ...\n", compiled.major, compiled.minor, compiled.patch);
+	LOG_info("Linked SDL version %d.%d.%d.\n", linked.major, linked.minor, linked.patch);
+	LOG_info("Available video drivers:\n");
+	for (int i=0; i<SDL_GetNumVideoDrivers(); i++) {
+		LOG_info("- %s\n", SDL_GetVideoDriver(i));
+	}
+	LOG_info("Current video driver: %s\n", SDL_GetCurrentVideoDriver());
+	LOG_info("Available render drivers:\n");
+	for (int i=0; i<SDL_GetNumRenderDrivers(); i++) {
+		SDL_RendererInfo info;
+		SDL_GetRenderDriverInfo(i,&info);
+		LOG_info("- %s\n", info.name);
+	}
 	//
 	// LOG_info("Available display modes:\n");
 	// SDL_DisplayMode mode;
@@ -2222,12 +2220,15 @@ void *PLAT_cpu_monitor(void *arg) {
     double prev_real_time = get_time_sec();
     double prev_cpu_time = get_process_cpu_time_sec();
 
+	const int min_cores = 1, max_cores = 4;
+	int cpu_count = max_cores; // todo: get from system
 	const int cpu_frequencies[] = {408,450,500,550,  600,650,700,750, 800,850,900,950, 1000,1050,1100,1150, 1200,1250,1300,1350, 1400,1450,1500,1550, 1600,1650,1700,1750, 1800,1850,1900,1950, 2000};
     const int num_freqs = sizeof(cpu_frequencies) / sizeof(cpu_frequencies[0]);
     int current_index = 5; 
 
     double cpu_usage_history[ROLLING_WINDOW] = {0};
     double cpu_speed_history[ROLLING_WINDOW] = {0};
+    double cpu_cores_history[ROLLING_WINDOW] = {0};
     int history_index = 0;
     int history_count = 0; 
 
@@ -2253,34 +2254,48 @@ void *PLAT_cpu_monitor(void *arg) {
 			// the roling averages are purely for displaying, the actual scaling is happening realtime each run. 
             if (cpu_usage > 95) {
                 current_index = num_freqs - 1; // Instant power needed, cpu is above 95% Jump directly to max boost 2000MHz
-            }
-            else if (cpu_usage > 85 && current_index < num_freqs - 1) { // otherwise try to keep between 75 and 85 at lowest clock speed
-                current_index++; 
-            } 
-            else if (cpu_usage < 75 && current_index > 0) {
-                current_index--; 
-            }
+				cpu_count = max_cores;
+			}
+			// Power up cases
+			else if (cpu_usage > 85) {
+				if(current_index < num_freqs - 1) // clock up
+                	current_index++; 
+				else if(cpu_count < max_cores) // core up
+					cpu_count++;
+			}
+			// Power down cases
+			else if (cpu_usage < 75) {
+				if(current_index > 0) // clock down
+                	current_index--; 
+				else if(cpu_count > min_cores) // core down
+					cpu_count--;
+			}
 
-            PLAT_setCustomCPUSpeed(cpu_frequencies[current_index] * 1000);
+			PLAT_setCustomCPUSpeed(cpu_frequencies[current_index] * 1000);
+			PLAT_setCustomCPUCores(cpu_count);
 
-            cpu_usage_history[history_index] = cpu_usage;
+			cpu_usage_history[history_index] = cpu_usage;
             cpu_speed_history[history_index] = cpu_frequencies[current_index];
+			cpu_cores_history[history_index] = cpu_count;
 
-            history_index = (history_index + 1) % ROLLING_WINDOW;
+			history_index = (history_index + 1) % ROLLING_WINDOW;
             if (history_count < ROLLING_WINDOW) {
                 history_count++; 
             }
 
-            double sum_cpu_usage = 0, sum_cpu_speed = 0;
-            for (int i = 0; i < history_count; i++) {
-                sum_cpu_usage += cpu_usage_history[i];
+			double sum_cpu_usage = 0, sum_cpu_speed = 0, sum_cpu_cores = 0;
+			for (int i = 0; i < history_count; i++)
+			{
+				sum_cpu_usage += cpu_usage_history[i];
                 sum_cpu_speed += cpu_speed_history[i];
-            }
+                sum_cpu_cores += cpu_cores_history[i];
+			}
 
-            currentcpuse = sum_cpu_usage / history_count;
+			currentcpuse = sum_cpu_usage / history_count;
             currentcpuspeed = sum_cpu_speed / history_count;
+			currentcpucores = sum_cpu_cores / history_count;
 
-            pthread_mutex_unlock(&currentcpuinfo);
+			pthread_mutex_unlock(&currentcpuinfo);
 
             prev_real_time = curr_real_time;
             prev_cpu_time = curr_cpu_time;
@@ -2314,8 +2329,9 @@ void *PLAT_cpu_monitor(void *arg) {
                 }
 
                 currentcpuse = sum_cpu_usage / history_count;
+				currentcpucores = cpu_count;
 
-                pthread_mutex_unlock(&currentcpuinfo);
+				pthread_mutex_unlock(&currentcpuinfo);
             }
 
             prev_real_time = curr_real_time;
@@ -2346,6 +2362,51 @@ void PLAT_setCPUSpeed(int speed) {
 		case CPU_SPEED_PERFORMANCE: freq = 2000000; currentcpuspeed = 2000; break;
 	}
 	putInt(GOVERNOR_PATH, freq);
+}
+
+#define CORE_PATH "/sys/devices/system/cpu/cpu%d/online"
+#define MAX_CPUS 4
+void PLAT_setCustomCPUCores(int count)
+{
+	char path[128];
+    FILE *fp;
+    int cpu;
+
+    if (count < 1) {
+        LOG_error("Error: At least one CPU must remain online.\n");
+        return;
+    }
+
+    for (cpu = 0; cpu < MAX_CPUS; cpu++) {
+        snprintf(path, sizeof(path), CORE_PATH, cpu);
+
+        // Try to open the file — if it doesn't exist, we skip this CPU.
+        fp = fopen(path, "w");
+        if (fp == NULL) {
+            if (errno == ENOENT) {
+                continue; // CPU doesn't exist
+            } else {
+                LOG_error(path);
+                continue;
+            }
+        }
+
+        if (cpu < count) {
+            // Keep CPU online
+            if (fprintf(fp, "1\n") < 0) {
+                LOG_error("Failed to write '1'");
+            }
+        } else {
+            // Offline CPU
+            if (fprintf(fp, "0\n") < 0) {
+                LOG_error("Failed to write '0'");
+            }
+        }
+
+        fclose(fp);
+    }
+
+    //LOG_info("Requested to keep %d CPUs online.\n", count);
 }
 
 #define MAX_STRENGTH 0xFFFF

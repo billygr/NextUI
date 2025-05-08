@@ -88,6 +88,7 @@ extern int currentbuffersize;
 extern int currentsampleratein;
 extern int currentsamplerateout;
 extern int currentcpuspeed;
+extern int currentcpucores;
 extern int currentshaderpass;
 extern int currentshadersrcw;
 extern int currentshadersrch;
@@ -585,6 +586,7 @@ void PLAT_powerOff(void);
 void *PLAT_cpu_monitor(void *arg);
 void PLAT_setCPUSpeed(int speed); // enum
 void PLAT_setCustomCPUSpeed(int speed);
+void PLAT_setCustomCPUCores(int count);
 void PLAT_setRumble(int strength);
 int PLAT_pickSampleRate(int requested, int max);
 
