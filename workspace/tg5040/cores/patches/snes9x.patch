@@ -9,9 +9,10 @@ index 466fa6b..ec40f1a
 +# tg5040
 +else ifneq (,$(findstring tg5040,$(platform)))
 +   CXX=/usr/bin/aarch64-linux-gnu-gcc
++   CC=/usr/bin/aarch64-linux-gnu-gcc
 +   CFLAGS += $(LTO)
 +   CXXFLAGS += $(LTO) -O3 -Ofast -march=armv8-a+simd -mtune=cortex-a53 -ffast-math
-+   LDFLAGS += $(LTO) -lstdc++ -flto
++   LDFLAGS += $(LTO) -lstdc++
 +   TARGET := $(TARGET_NAME)_libretro.so
 +   fpic := -fPIC
 +   LIBS += -lz
