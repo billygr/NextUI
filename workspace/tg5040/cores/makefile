@@ -1,9 +1,12 @@
 CORES = fceumm gambatte gpsp pcsx_rearmed picodrive snes9x
+CORES += fake-08 mednafen_supafaust mgba
 # CORES+= mednafen_pce_fast mednafen_vb fake-08 mednafen_supafaust mgba pokemini race fbneo
-CORES+= mednafen_pce_fast mednafen_vb fake-08 mednafen_supafaust mgba race fbneo
-CORES+= libretro-uae c64 c128 vic pet plus4 libretro-cap32
+# CORES+= mednafen_pce_fast mednafen_vb fake-08 mednafen_supafaust mgba race fbneo
+
+# CORES+= libretro-uae c64 c128 vic pet plus4 libretro-cap32
+
 #CORES+= mednafen_pce_fast mednafen_vb fake-08 mednafen_supafaust mgba pokemini race 
-CORES += prboom
+# CORES += prboom
 
 ###############################
 
