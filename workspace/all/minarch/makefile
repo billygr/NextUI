@@ -32,7 +32,7 @@ LDFLAGS	 += -lmsettings -lzip -lsamplerate -Llibretro-common -lsrm
 # CFLAGS  += -fsanitize=address -fno-common
 # LDFLAGS += -lasan
 
-AR=$(CROSS_COMPILE)ar
+AR=$(CROSS_COMPILE)gcc-ar
 ARFLAGS=rc
 
 BUILD_DATE!=date +%Y.%m.%d
@@ -43,7 +43,7 @@ all: libretro-common libsrm.a $(PREFIX)/include/msettings.h
 	mkdir -p build/$(PLATFORM)
 	cp /usr/lib/aarch64-linux-gnu/libsamplerate.so.0 build/$(PLATFORM)
 	# This is a bandaid fix, needs to be cleaned up if/when we expand to other platforms.
-	cp /usr/local/lib/libzip.so.5 build/$(PLATFORM)
+	# cp /usr/local/lib/libzip.so.5 build/$(PLATFORM)
 	cp /lib/aarch64-linux-gnu/libbz2.so.1.0 build/$(PLATFORM)
 	cp /lib/aarch64-linux-gnu/liblzma.so.5 build/$(PLATFORM)
 	cp /usr/lib/aarch64-linux-gnu/libzstd.so.1 build/$(PLATFORM)
