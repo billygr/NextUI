@@ -1,6 +1,7 @@
 #include "config.h"
 #include "defines.h"
 #include "utils.h"
+#include <unistd.h>
 
 NextUISettings settings = {0};
 
@@ -288,13 +289,21 @@ void CFG_setFontId(int id)
 {
     settings.font = clamp(id, 0, 2);
 
+    const char *themeFontPath = THEME_PATH "/font.ttf";
     char *fontPath;
-    if (settings.font == 1)
-        fontPath = RES_PATH "/font1.ttf";
-    else
-        fontPath = RES_PATH "/font2.ttf";
 
-    if(settings.onFontChange)
+    // Check if THEME_PATH/font.ttf exists
+    if (access(themeFontPath, F_OK) == 0) {
+        fontPath = (char *)themeFontPath;
+    } else {
+        // Fallback to default fonts
+        if (settings.font == 1)
+            fontPath = RES_PATH "/font1.ttf";
+        else
+            fontPath = RES_PATH "/font2.ttf";
+    }
+
+    if (settings.onFontChange)
         settings.onFontChange(fontPath);
 }
 
