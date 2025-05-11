@@ -699,6 +699,21 @@ void CFG_sync(void)
     fprintf(file, "wifi=%i\n", settings.wifi);
 
     fclose(file);
+    sprintf(settingsPath, "%s/theme.txt", THEME_PATH);
+    file = fopen(settingsPath, "w");
+    if (file == NULL)
+    {
+        printf("[CFG] Unable to open settings file, cant write\n");
+        return;
+    }
+    fprintf(file, "color1=0x%06X\n", settings.color1_255);
+    fprintf(file, "color2=0x%06X\n", settings.color2_255);
+    fprintf(file, "color3=0x%06X\n", settings.color3_255);
+    fprintf(file, "color4=0x%06X\n", settings.color4_255);
+    fprintf(file, "color5=0x%06X\n", settings.color5_255);
+    fprintf(file, "color6=0x%06X\n", settings.color6_255);
+    fprintf(file, "radius=%i\n", settings.thumbRadius);
+    fclose(file);
 }
 
 void CFG_print(void)
