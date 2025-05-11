@@ -2,7 +2,8 @@
 #include "defines.h"
 #include "utils.h"
 #include <unistd.h>
-
+#include <sys/stat.h>
+#include <sys/types.h>
 NextUISettings settings = {0};
 
 // deprecated
@@ -88,38 +89,7 @@ void CFG_init(FontLoad_callback_t cb, ColorSet_callback_t ccb)
                 fontLoaded = true;
                 continue;
             }
-            if (sscanf(line, "color1=%x", &temp_color) == 1)
-            {
-                char hexColor[7];
-                snprintf(hexColor, sizeof(hexColor), "%06x", temp_color);
-                CFG_setColor(1, HexToUint32_unmapped(hexColor));
-                continue;
-            }
-            if (sscanf(line, "color2=%x", &temp_color) == 1)
-            {
-                CFG_setColor(2, temp_color);
-                continue;
-            }
-            if (sscanf(line, "color3=%x", &temp_color) == 1)
-            {
-                CFG_setColor(3, temp_color);
-                continue;
-            }
-            if (sscanf(line, "color4=%x", &temp_color) == 1)
-            {
-                CFG_setColor(4, temp_color);
-                continue;
-            }
-            if (sscanf(line, "color5=%x", &temp_color) == 1)
-            {
-                CFG_setColor(5, temp_color);
-                continue;
-            }
-            if (sscanf(line, "color6=%x", &temp_color) == 1)
-            {
-                CFG_setColor(6, temp_color);
-                continue;
-            }
+           
             if (sscanf(line, "radius=%i", &temp_value) == 1)
             {
                 CFG_setThumbnailRadius(temp_value);
@@ -681,14 +651,7 @@ void CFG_sync(void)
     }
 
     fprintf(file, "font=%i\n", settings.font);
-    fprintf(file, "color1=0x%06X\n", settings.color1_255);
-    fprintf(file, "color2=0x%06X\n", settings.color2_255);
-    fprintf(file, "color3=0x%06X\n", settings.color3_255);
-    fprintf(file, "color4=0x%06X\n", settings.color4_255);
-    fprintf(file, "color5=0x%06X\n", settings.color5_255);
-    fprintf(file, "color6=0x%06X\n", settings.color6_255);
     fprintf(file, "bgcolor=0x%06X\n", settings.backgroundColor_255);
-    fprintf(file, "radius=%i\n", settings.thumbRadius);
     fprintf(file, "showclock=%i\n", settings.showClock);
     fprintf(file, "clock24h=%i\n", settings.clock24h);
     fprintf(file, "batteryperc=%i\n", settings.showBatteryPercent);
@@ -709,6 +672,10 @@ void CFG_sync(void)
 
     fclose(file);
     sprintf(settingsPath, "%s/theme.txt", THEME_PATH);
+
+    if (!exists(THEME_PATH)) {
+        mkdir(THEME_PATH, 0755);
+    }
     file = fopen(settingsPath, "w");
     if (file == NULL)
     {
