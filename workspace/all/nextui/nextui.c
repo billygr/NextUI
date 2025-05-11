@@ -1473,7 +1473,10 @@ int main (int argc, char *argv[]) {
 
 	char folderBgPath[1024];
 	folderbgbmp = NULL;
-	SDL_Surface* bgbmp = IMG_Load(SDCARD_PATH "/bg.png");
+	SDL_Surface* bgbmp = IMG_Load(THEME_PATH "/bg.png");
+	if(!bgbmp)
+		bgbmp = IMG_Load(SDCARD_PATH "/bg.png");
+		
 	SDL_Surface* convertedbg = SDL_ConvertSurfaceFormat(bgbmp, SDL_PIXELFORMAT_RGBA8888, 0);
 	if (convertedbg) {
 		SDL_FreeSurface(bgbmp); 
