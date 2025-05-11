@@ -1369,7 +1369,15 @@ SDL_Surface* loadFolderBackground(char* rompath, int type)
 		snprintf(imagePath, sizeof(imagePath), "%s/%s/bg.png", THEME_PATH,emutag);
 	else if(type == ENTRY_ROM)
 		snprintf(imagePath, sizeof(imagePath), "%s/%s/bglist.png", THEME_PATH,emutag);
-
+	
+	// fallback for old .media system
+	if(!exists(imagePath)) {
+		if(type == ENTRY_DIR)
+			snprintf(imagePath, sizeof(imagePath), "%s/.media/bg.png", rompath);
+		else if(type == ENTRY_ROM)
+			snprintf(imagePath, sizeof(imagePath), "%s/.media/bglist.png", rompath);
+	}
+		
 	//LOG_info("Loading folder bg from %s\n", imagePath);
 	if(exists(imagePath)) {
 		SDL_Surface *image = IMG_Load(imagePath);
