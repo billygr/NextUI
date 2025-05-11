@@ -212,6 +212,60 @@ void CFG_init(FontLoad_callback_t cb, ColorSet_callback_t ccb)
         }
         fclose(file);
     }
+    // Check for theme.txt settings file and overwrite configs if found
+    sprintf(settingsPath, "%s/theme.txt", THEME_PATH);
+    file = fopen(settingsPath, "r");
+    if (file == NULL)
+    {
+        printf("[CFG] Unable to open settings file, loading defaults\n");
+    }
+    else
+    {
+        char line[256];
+        while (fgets(line, sizeof(line), file))
+        {
+            int temp_value;
+            uint32_t temp_color;
+            if (sscanf(line, "color1=%x", &temp_color) == 1)
+            {
+                char hexColor[7];
+                snprintf(hexColor, sizeof(hexColor), "%06x", temp_color);
+                CFG_setColor(1, HexToUint32_unmapped(hexColor));
+                continue;
+            }
+            if (sscanf(line, "color2=%x", &temp_color) == 1)
+            {
+                CFG_setColor(2, temp_color);
+                continue;
+            }
+            if (sscanf(line, "color3=%x", &temp_color) == 1)
+            {
+                CFG_setColor(3, temp_color);
+                continue;
+            }
+            if (sscanf(line, "color4=%x", &temp_color) == 1)
+            {
+                CFG_setColor(4, temp_color);
+                continue;
+            }
+            if (sscanf(line, "color5=%x", &temp_color) == 1)
+            {
+                CFG_setColor(5, temp_color);
+                continue;
+            }
+            if (sscanf(line, "color6=%x", &temp_color) == 1)
+            {
+                CFG_setColor(6, temp_color);
+                continue;
+            }
+            if (sscanf(line, "radius=%i", &temp_value) == 1)
+            {
+                CFG_setThumbnailRadius(temp_value);
+                continue;
+            }
+        }
+        fclose(file);
+    }
 
     // load gfx related stuff until we drop the indirection
     CFG_setColor(1, CFG_getColor(1));
