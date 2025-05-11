@@ -672,10 +672,6 @@ void CFG_sync(void)
 
     fclose(file);
     sprintf(settingsPath, "%s/theme.txt", THEME_PATH);
-
-    if (!exists(THEME_PATH)) {
-        mkdir(THEME_PATH, 0755);
-    }
     file = fopen(settingsPath, "w");
     if (file == NULL)
     {
