@@ -603,7 +603,7 @@ void PLAT_updateShader(int i, const char *filename, int *scale, int *filter, int
 void PLAT_initShaders();
 int PLAT_supportsOverscan(void);
 bool animations_running();
-
+int animation_queue_length();
 SDL_Surface* PLAT_initOverlay(void);
 void PLAT_quitOverlay(void);
 void PLAT_enableOverlay(int enable);

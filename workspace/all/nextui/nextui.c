@@ -1548,7 +1548,7 @@ int main (int argc, char *argv[]) {
 				gsanimdir=2;
 			}
 		}
-		else {
+		else if(!animations_running()){
 			if (PAD_tappedMenu(now)) {
 				show_version = 1;
 				show_switcher = 0; // just to be sure
@@ -2194,8 +2194,8 @@ int main (int argc, char *argv[]) {
 				animationdirection=0;
 			} 
 				
-				PLAT_drawPill();
-				GFX_flip(screen);
+			PLAT_drawPill();
+			GFX_flip(screen);
 			
 			
 			dirty = 0;
