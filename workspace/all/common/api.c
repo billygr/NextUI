@@ -253,7 +253,8 @@ int GFX_updateColors()
 
 	return 0;
 }
-
+SDL_mutex* anim_mutex = NULL;
+SDL_cond* anim_cond = NULL;
 SDL_Surface* GFX_init(int mode)
 {
 	// TODO: this doesn't really belong here...
@@ -328,7 +329,8 @@ SDL_Surface* GFX_init(int mode)
 	gfx.assets = IMG_Load(asset_path);
 	
 	PLAT_clearAll();
-
+	anim_mutex = SDL_CreateMutex();
+	anim_cond = SDL_CreateCond();
 	return gfx.screen;
 }
 void GFX_quit(void) {
@@ -1081,31 +1083,72 @@ typedef struct {
 
 static int stopThread=0;
 int frameready = 0;
-int animateInThread(void* arg) {
-    AnimationParams* params = (AnimationParams*)arg;
 
-    const int fps = 60;
-	const int frame_delay = 1000 / fps;
-	const int total_frames = params->duration;
+#define MAX_QUEUE 32
 
-	for (int frame = 0; frame <= total_frames; ++frame) {
-	
-		float t = (float)frame / total_frames;
-		if (t > 1.0f) t = 1.0f;
+typedef struct {
+    AnimationParams* items[MAX_QUEUE];
+    int head;
+    int tail;
+    SDL_mutex* mutex;
+    SDL_cond* cond;
+} AnimationQueue;
+
+AnimationQueue animQueue = { .head = 0, .tail = 0 };
+
+void queue_push(AnimationParams* params) {
+    SDL_LockMutex(animQueue.mutex);
+    animQueue.items[animQueue.tail] = params;
+    animQueue.tail = (animQueue.tail + 1) % MAX_QUEUE;
+    SDL_CondSignal(animQueue.cond);
+    SDL_UnlockMutex(animQueue.mutex);
+}
+
+AnimationParams* queue_pop() {
+    SDL_LockMutex(animQueue.mutex);
+    while (animQueue.head == animQueue.tail) {
+        SDL_CondWait(animQueue.cond, animQueue.mutex); // Wait for work
+    }
+    AnimationParams* params = animQueue.items[animQueue.head];
+    animQueue.head = (animQueue.head + 1) % MAX_QUEUE;
+    SDL_UnlockMutex(animQueue.mutex);
+    return params;
+}
+int animation_queue_length() {
+    SDL_LockMutex(animQueue.mutex);
+    int length = (animQueue.tail - animQueue.head + MAX_QUEUE) % MAX_QUEUE;
+    SDL_UnlockMutex(animQueue.mutex);
+    return length;
+}
+
+int animation_worker_thread(void* arg) {
+    while (1) {
+        AnimationParams* params = queue_pop();
 		
-		selectionpill.y = params->srcy + (int)((params->trgy - params->srcy) * t);
-		while (!frameready) {
-			if(stopThread) {
-				selectionpill.y = params->trgy;
-				break;
-			}
-			SDL_Delay(1); // tiny sleep to avoid CPU spinning 100%
-		}
-		frameready = 0; // reset for next wait
+        const int total_frames = params->duration;
+        for (int frame = 0; frame <= total_frames; frame++) {
+            float t = (float)frame / total_frames;
+            if (t > 1.0f) t = 1.0f;
+
+            selectionpill.y = params->srcy + (int)((params->trgy - params->srcy) * t);
 	
-	}
-	free(params);
-    return 0; // Thread completed
+            if (animation_queue_length() == 0) {
+                while (!frameready) {
+                    SDL_Delay(1);
+                }
+                frameready = 0;
+            } 
+        }
+        free(params);
+    }
+    return 0;
+}
+
+bool animations_running() {
+    SDL_LockMutex(animQueue.mutex);
+    bool running = (animQueue.head != animQueue.tail);
+    SDL_UnlockMutex(animQueue.mutex);
+    return running;
 }
 
 
@@ -1114,26 +1157,18 @@ void GFX_animatePill(
     int startY, int targetY, 
     int duration
 ) {
-
-	if (animationThread) {
-		stopThread = 1;
-		SDL_WaitThread(animationThread, NULL);
-		animationThread = NULL;
-		stopThread = 0;
-		
+	if(!animationThread) {
+		SDL_Log("create animathread\n");
+		animQueue.mutex = SDL_CreateMutex();
+		animQueue.cond = SDL_CreateCond();
+		animationThread = SDL_CreateThread(animation_worker_thread, "AnimWorker", NULL);
 	}
 
-    AnimationParams* params = malloc(sizeof(AnimationParams));
+	AnimationParams* params = malloc(sizeof(AnimationParams));
 	params->srcy = startY;
 	params->trgy = targetY;
 	params->duration = duration;
-
-    // Start the animation in a new thread
-    animationThread = SDL_CreateThread(animateInThread, "AnimationThread", params);
-    if (!animationThread) {
-        printf("Failed to create animation thread: %s\n", SDL_GetError());
-        free(params);
-    }
+	queue_push(params); // only pushes to queue
 }
 
 void GFX_ApplyRoundedCorners16(SDL_Surface* surface, SDL_Rect* rect, int radius) {

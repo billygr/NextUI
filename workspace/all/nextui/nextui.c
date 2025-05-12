@@ -2204,49 +2204,41 @@ int main (int argc, char *argv[]) {
 		} else {
 			PLAT_drawPill();
 			// honestly this whole thing is here only for the scrolling text, I set it now to run this at 30fps which is enough for scrolling text, should move this to seperate animation function eventually
-			Uint32 now = SDL_GetTicks();
-			Uint32 frame_start = now;
-			static char cached_display_name[256] = "";
-			if (!show_switcher && !show_version && is_scrolling) {
+			// Uint32 now = SDL_GetTicks();
+			// Uint32 frame_start = now;
+			// static char cached_display_name[256] = "";
+			
 				
-				int ow = GFX_blitHardwareGroup(screen, show_setting);
-				Entry* entry = top->entries->items[top->selected];
-				trimSortingMeta(&entry->name);
-				char* entry_text = entry->name;
-				if (entry->unique) {
-					trimSortingMeta(&entry->unique);
-					entry_text = entry->unique;
-				}
+			// 	int ow = GFX_blitHardwareGroup(screen, show_setting);
+			// 	Entry* entry = top->entries->items[top->selected];
+			// 	trimSortingMeta(&entry->name);
+			// 	char* entry_text = entry->name;
+			// 	if (entry->unique) {
+			// 		trimSortingMeta(&entry->unique);
+			// 		entry_text = entry->unique;
+			// 	}
 
-				int available_width = (had_thumb ? ox + SCALE1(BUTTON_MARGIN) : screen->w - SCALE1(BUTTON_MARGIN)) - SCALE1(PADDING * 2);
-				if (top->selected == top->start && !had_thumb) available_width -= ow;
+			// 	int available_width = (had_thumb ? ox + SCALE1(BUTTON_MARGIN) : screen->w - SCALE1(BUTTON_MARGIN)) - SCALE1(PADDING * 2);
+			// 	if (top->selected == top->start && !had_thumb) available_width -= ow;
 
-				SDL_Color text_color = uintToColour(THEME_COLOR5_255);
+			// 	SDL_Color text_color = uintToColour(THEME_COLOR5_255);
 
-				int text_width = GFX_getTextWidth(font.large, entry_text, cached_display_name, available_width, SCALE1(BUTTON_PADDING * 2));
-				int max_width = MIN(available_width, text_width);
+			// 	int text_width = GFX_getTextWidth(font.large, entry_text, cached_display_name, available_width, SCALE1(BUTTON_PADDING * 2));
+			// 	int max_width = MIN(available_width, text_width);
 
-				GFX_clearLayers(4);
-				GFX_scrollTextTexture(
-					font.large,
-					entry_text,
-					SCALE1(BUTTON_MARGIN + BUTTON_PADDING), SCALE1(PADDING + (remember_selection * PILL_SIZE) + 4),
-					max_width - SCALE1(BUTTON_PADDING * 2),
-					0,
-					0,
-					text_color,
-					1
-				);
+				// GFX_clearLayers(4);
+				// GFX_scrollTextTexture(
+				// 	font.large,
+				// 	entry_text,
+				// 	SCALE1(BUTTON_MARGIN + BUTTON_PADDING), SCALE1(PADDING + (remember_selection * PILL_SIZE) + 4),
+				// 	max_width - SCALE1(BUTTON_PADDING * 2),
+				// 	0,
+				// 	0,
+				// 	text_color,
+				// 	1
+				// );
 
-				
-			}
 			dirty = 0;
-			const int fps = 30; // 30fps is more then enough for scrolling text
-				const int frame_delay = 1000 / fps;
-				Uint32 frame_time = SDL_GetTicks() - frame_start;
-				if (frame_time < frame_delay) {
-					// SDL_Delay(frame_delay - frame_time);
-				}
 		}
 		
 		// handle HDMI change

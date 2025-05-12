@@ -602,6 +602,7 @@ void PLAT_setShader3(const char* filename);
 void PLAT_updateShader(int i, const char *filename, int *scale, int *filter, int *scaletype, int *inputtype);
 void PLAT_initShaders();
 int PLAT_supportsOverscan(void);
+bool animations_running();
 
 SDL_Surface* PLAT_initOverlay(void);
 void PLAT_quitOverlay(void);
