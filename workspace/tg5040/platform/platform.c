@@ -1259,7 +1259,10 @@ void PLAT_GPU_Flip() {
 	SDL_RenderCopy(vid.renderer, vid.target_layer3, NULL, NULL);
 	SDL_RenderCopy(vid.renderer, vid.target_layer4, NULL, NULL);
 	SDL_RenderPresent(vid.renderer);
+	SDL_LockMutex(platMutex);
 	frameready = 1;
+	SDL_CondSignal(frameCond);
+	SDL_UnlockMutex(platMutex);
 }
 
 

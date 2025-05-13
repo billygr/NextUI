@@ -259,7 +259,8 @@ SDL_Surface* GFX_init(int mode)
 {
 	// TODO: this doesn't really belong here...
 	// tried adding to PWR_init() but that was no good (not sure why)
-
+	platMutex = SDL_CreateMutex();
+	frameCond  = SDL_CreateCond();
 	PLAT_initLid();
 	LEDS_initLeds();
 	LEDS_updateLeds();
@@ -1082,7 +1083,7 @@ typedef struct {
 
 
 static int stopThread=0;
-int frameready = 0;
+volatile int frameready = 0;
 
 #define MAX_QUEUE 32
 
@@ -1133,9 +1134,11 @@ int animation_worker_thread(void* arg) {
             selectionpill.y = params->srcy + (int)((params->trgy - params->srcy) * t);
 	
             if (animation_queue_length() == 0) {
+				SDL_LockMutex(platMutex);
                 while (!frameready) {
-                    SDL_Delay(1);
+                    SDL_CondWait(frameCond, platMutex);
                 }
+				SDL_UnlockMutex(platMutex);
                 frameready = 0;
             } 
         }

@@ -353,7 +353,7 @@ typedef struct LID_Context {
 } LID_Context;
 extern LID_Context lid;
 
-extern int frameready;
+extern volatile int frameready;
 typedef struct Pill {
 	SDL_Surface * sur;
 	SDL_Texture* moveTexture;
@@ -364,6 +364,8 @@ typedef struct Pill {
 } Pill;
 
 extern Pill selectionpill;
+SDL_mutex *platMutex;
+SDL_cond  *frameCond;
 
 void PLAT_drawPill();
 
