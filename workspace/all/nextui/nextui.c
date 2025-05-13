@@ -1481,7 +1481,6 @@ int main (int argc, char *argv[]) {
     pthread_create(&cpucheckthread, NULL, PLAT_cpu_monitor, NULL);
 	LOG_info("Start time time %ims\n",SDL_GetTicks());
 	while (!quit) {
-	
 		GFX_startFrame();
 		unsigned long now = SDL_GetTicks();
 		
@@ -1548,7 +1547,7 @@ int main (int argc, char *argv[]) {
 				gsanimdir=2;
 			}
 		}
-		else if(!animations_running()){
+		else {
 			if (PAD_tappedMenu(now)) {
 				show_version = 1;
 				show_switcher = 0; // just to be sure
@@ -1966,11 +1965,9 @@ int main (int argc, char *argv[]) {
 				lastScreen = SCREEN_GAMESWITCHER;
 			}
 			else {
-
 				// draw background
 				static int lastType = -1;
 				if(((entry->type == ENTRY_DIR || entry->type == ENTRY_ROM) && CFG_getRomsUseFolderBackground())) {
-					LOG_info("entry path %s %s\n",entry->path,rompath);
 					char *newBg = entry->type == ENTRY_DIR ? entry->path:rompath;
 					if((strcmp(newBg, folderBgPath) != 0 || lastType != entry->type) && sizeof(folderBgPath) != 1) {
 						lastType = entry->type;
@@ -1987,7 +1984,6 @@ int main (int argc, char *argv[]) {
 				} else {
 					GFX_drawOnLayer(blackBG,0, 0, screen->w, screen->h,1.0f,0,1);
 				}
-				
 				// draw game artwork
 				if (total > 0) {
 					char thumbpath[1024];
@@ -2036,7 +2032,6 @@ int main (int argc, char *argv[]) {
 						}
 					}
 				}
-
 				// buttons
 				if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
 				else if (can_resume) GFX_blitButtonGroup((char*[]){ "X","RESUME",  NULL }, 0, screen, 0);
@@ -2058,7 +2053,6 @@ int main (int argc, char *argv[]) {
 						GFX_blitButtonGroup((char*[]){ "A","OPEN", NULL }, 0, screen, 1);
 					}
 				}
-
 				// list
 				if (total > 0) {
 					selected_row = top->selected - top->start;
@@ -2103,7 +2097,6 @@ int main (int argc, char *argv[]) {
 						
 						SDL_FreeSurface(text_unique); // Free after use
 						SDL_FreeSurface(text); // Free after use
-					
 					}
 					if(lastScreen==SCREEN_GAMESWITCHER) {
 						if(switchetsur) {
@@ -2128,8 +2121,8 @@ int main (int argc, char *argv[]) {
 							int text_width = GFX_getTextWidth(font.large, entry_unique ? entry_unique : entry_name, display_name, available_width, SCALE1(BUTTON_PADDING * 2));
 							int max_width = MIN(available_width, text_width);
 							SDL_Color text_color = uintToColour(THEME_COLOR5_255);
-							SDL_Surface* text = TTF_RenderUTF8_Blended(font.large,  entry_unique ? entry_unique : entry_name, text_color);
-							GFX_drawOnLayer(text,SCALE1(BUTTON_MARGIN + BUTTON_PADDING),SCALE1(targetY+PADDING+4),max_width - SCALE1(BUTTON_PADDING*2),text->h,1.0f,1,4);
+							// SDL_Surface* text = TTF_RenderUTF8_Blended(font.large,  entry_unique ? entry_unique : entry_name, text_color);
+							// GFX_drawOnLayer(text,SCALE1(BUTTON_MARGIN + BUTTON_PADDING),SCALE1(targetY+PADDING+4),max_width - SCALE1(BUTTON_PADDING*2),text->h,1.0f,1,4);
 							
 							is_scrolling = GFX_resetScrollText(font.large,display_name, max_width - SCALE1(BUTTON_PADDING*2));
 							if(!selectionpill.sur)
@@ -2143,7 +2136,8 @@ int main (int argc, char *argv[]) {
 								0,0, max_width, SCALE1(PILL_SIZE)
 							});
 							if(animationdirection == 0)	{
-								GFX_flipHidden();
+								// GFX_flipHidden();
+								// GFX_clearLayers(1);
 								selectionpill.x = SCALE1(BUTTON_MARGIN);
 								// selectionpill.y = SCALE1(targetY+PADDING);
 								selectionpill.w = max_width;
@@ -2151,9 +2145,9 @@ int main (int argc, char *argv[]) {
 								GFX_animatePill( SCALE1(previousY+PADDING),SCALE1(targetY+PADDING),3);
 								
 							} 
-					
 							// SDL_FreeSurface(text);
 						} 
+						
 					}
 					remember_selection = selected_row;
 				}
@@ -2161,8 +2155,7 @@ int main (int argc, char *argv[]) {
 					// TODO: for some reason screen's dimensions end up being 0x0 in GFX_blitMessage...
 					GFX_blitMessage(font.large, "Empty folder", screen, &(SDL_Rect){0,0,screen->w,screen->h}); //, NULL);
 				}
-				
-				
+
 				lastScreen = SCREEN_GAMELIST;
 			}
 			
@@ -2182,17 +2175,15 @@ int main (int argc, char *argv[]) {
 				SDL_FreeSurface(tmpNewScreen);
 				animationdirection=0;
 			} 
-			if(lastScreen == SCREEN_GAMELIST)
-				PLAT_drawPill();
-			GFX_flip(screen);
-			
+				if(lastScreen==SCREEN_GAMELIST) PLAT_drawPill();
+				
+				GFX_flip(screen);
 			
 			dirty = 0;
 			readytoscroll = 0;
 			
 		} else {
-			if(lastScreen == SCREEN_GAMELIST)
-				PLAT_drawPill();
+			if(lastScreen==SCREEN_GAMELIST) PLAT_drawPill();
 			// honestly this whole thing is here only for the scrolling text, I set it now to run this at 30fps which is enough for scrolling text, should move this to seperate animation function eventually
 			// Uint32 now = SDL_GetTicks();
 			// Uint32 frame_start = now;
@@ -2228,7 +2219,7 @@ int main (int argc, char *argv[]) {
 				// 	1
 				// );
 
-			dirty = 0;
+			// dirty = 0;
 		}
 		
 		// handle HDMI change
@@ -2244,8 +2235,6 @@ int main (int argc, char *argv[]) {
 			sleep(4);
 			quit = 1;
 		}
-
-
 		
 	}
 	if(bgbmp) 	SDL_FreeSurface(bgbmp);

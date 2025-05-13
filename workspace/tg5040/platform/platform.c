@@ -1206,7 +1206,7 @@ void PLAT_scrollTextTexture(
 	SDL_Surface* text_surface = SDL_CreateRGBSurfaceWithFormat(0,
 		tempSur->w, tempSur->h, 32, SDL_PIXELFORMAT_RGBA8888);
 	
-	SDL_FillRect(text_surface, NULL, THEME_COLOR1);
+	// SDL_FillRect(text_surface, NULL, THEME_COLOR1);
 	SDL_BlitSurface(tempSur, NULL, text_surface, NULL);
 
     SDL_Texture* full_text_texture = SDL_CreateTextureFromSurface(vid.renderer, text_surface);
@@ -1261,7 +1261,7 @@ void PLAT_GPU_Flip() {
 	SDL_RenderPresent(vid.renderer);
 	SDL_LockMutex(platMutex);
 	frameready = 1;
-	SDL_CondSignal(frameCond);
+	SDL_CondSignal(syncCond);
 	SDL_UnlockMutex(platMutex);
 }
 

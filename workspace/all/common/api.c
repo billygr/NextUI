@@ -260,7 +260,7 @@ SDL_Surface* GFX_init(int mode)
 	// TODO: this doesn't really belong here...
 	// tried adding to PWR_init() but that was no good (not sure why)
 	platMutex = SDL_CreateMutex();
-	frameCond  = SDL_CreateCond();
+	syncCond  = SDL_CreateCond();
 	PLAT_initLid();
 	LEDS_initLeds();
 	LEDS_updateLeds();
@@ -1097,8 +1097,11 @@ typedef struct {
 
 AnimationQueue animQueue = { .head = 0, .tail = 0 };
 
+int animationsleft = 0;
+
 void queue_push(AnimationParams* params) {
     SDL_LockMutex(animQueue.mutex);
+	animationsleft++;
     animQueue.items[animQueue.tail] = params;
     animQueue.tail = (animQueue.tail + 1) % MAX_QUEUE;
     SDL_CondSignal(animQueue.cond);
@@ -1117,7 +1120,7 @@ AnimationParams* queue_pop() {
 }
 int animation_queue_length() {
     SDL_LockMutex(animQueue.mutex);
-    int length = (animQueue.tail - animQueue.head + MAX_QUEUE) % MAX_QUEUE;
+    int length = animationsleft;
     SDL_UnlockMutex(animQueue.mutex);
     return length;
 }
@@ -1126,23 +1129,29 @@ int animation_worker_thread(void* arg) {
     while (1) {
         AnimationParams* params = queue_pop();
 		
-        const int total_frames = params->duration;
-        for (int frame = 0; frame <= total_frames; frame++) {
-            float t = (float)frame / total_frames;
-            if (t > 1.0f) t = 1.0f;
+        int total_frames = params->duration;
+		int frame = 0;
+		while(frame <= total_frames) {
+				float t = (float)frame / total_frames;
+				if (t > 1.0f) t = 1.0f;
 
-            selectionpill.y = params->srcy + (int)((params->trgy - params->srcy) * t);
-	
-            if (animation_queue_length() == 0) {
-				SDL_LockMutex(platMutex);
-                while (!frameready) {
-                    SDL_CondWait(frameCond, platMutex);
-                }
-				SDL_UnlockMutex(platMutex);
-                frameready = 0;
-            } 
-        }
-        free(params);
+				selectionpill.y = params->srcy + (int)((params->trgy - params->srcy) * t);
+		
+				if (animation_queue_length() > 1) {
+					total_frames = 0;
+				} 
+					SDL_LockMutex(platMutex);
+					while (!frameready) {
+						SDL_CondWait(syncCond, platMutex);
+					}
+					SDL_UnlockMutex(platMutex);
+					frameready = 0;
+				frame++;
+			}
+			free(params);
+			SDL_LockMutex(animQueue.mutex);
+			animationsleft--;
+			SDL_UnlockMutex(animQueue.mutex);
     }
     return 0;
 }
@@ -1150,6 +1159,12 @@ int animation_worker_thread(void* arg) {
 bool animations_running() {
     SDL_LockMutex(animQueue.mutex);
     bool running = (animQueue.head != animQueue.tail);
+    SDL_UnlockMutex(animQueue.mutex);
+    return running;
+}
+bool animations_stopped() {
+    SDL_LockMutex(animQueue.mutex);
+    bool running = (animQueue.head == animQueue.tail);
     SDL_UnlockMutex(animQueue.mutex);
     return running;
 }

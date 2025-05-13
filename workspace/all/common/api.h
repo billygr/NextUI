@@ -365,7 +365,7 @@ typedef struct Pill {
 
 extern Pill selectionpill;
 SDL_mutex *platMutex;
-SDL_cond  *frameCond;
+SDL_cond  *syncCond;
 
 void PLAT_drawPill();
 
@@ -605,6 +605,7 @@ void PLAT_updateShader(int i, const char *filename, int *scale, int *filter, int
 void PLAT_initShaders();
 int PLAT_supportsOverscan(void);
 bool animations_running();
+bool animations_stopped();
 int animation_queue_length();
 SDL_Surface* PLAT_initOverlay(void);
 void PLAT_quitOverlay(void);
