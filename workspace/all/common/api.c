@@ -64,7 +64,7 @@ float currentbufferms = 20.0;
 LightSettings lightsDefault[MAX_LIGHTS];
 LightSettings lightsMuted[MAX_LIGHTS];
 LightSettings (*lights)[MAX_LIGHTS] = NULL;
-Pill selectionpill = {0};
+Pill selectionpill = {NULL,NULL,0,0,0,0};
 
 volatile int useAutoCpu;
 

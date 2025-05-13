@@ -1481,7 +1481,7 @@ int main (int argc, char *argv[]) {
     pthread_create(&cpucheckthread, NULL, PLAT_cpu_monitor, NULL);
 	LOG_info("Start time time %ims\n",SDL_GetTicks());
 	while (!quit) {
-
+	
 		GFX_startFrame();
 		unsigned long now = SDL_GetTicks();
 		
@@ -1820,7 +1820,6 @@ int main (int argc, char *argv[]) {
 			}
 			else if(show_switcher) {
 				// For all recents with resumable state (i.e. has savegame), show game switcher carousel
-
 				#define WINDOW_RADIUS 0 // TODO: this logic belongs in blitRect?
 				#define PAGINATION_HEIGHT 0
 				// unscaled
@@ -1830,7 +1829,6 @@ int main (int argc, char *argv[]) {
 				int ph = hh + SCALE1(WINDOW_RADIUS*2 + PAGINATION_HEIGHT + WINDOW_RADIUS);
 				ox = 0; // screen->w - pw - SCALE1(PADDING);
 				oy = 0; // (screen->h - ph) / 2;
-
 				// window
 				// GFX_blitRect(ASSET_STATE_BG, screen, &(SDL_Rect){ox,oy,pw,ph});
 
@@ -1838,39 +1836,31 @@ int main (int argc, char *argv[]) {
 					Entry *selectedEntry = entryFromRecent(recents->items[switcher_selected]);
 					readyResume(selectedEntry);
 					// title pill
-					{
-						
-						int max_width = screen->w - SCALE1(PADDING * 2) - ow;
-						
-						char display_name[256];
-						int text_width = GFX_truncateText(font.large, selectedEntry->name, display_name, max_width, SCALE1(BUTTON_PADDING*2));
-						max_width = MIN(max_width, text_width);
+					int max_width = screen->w - SCALE1(PADDING * 2) - ow;
+					
+					char display_name[256];
+					int text_width = GFX_truncateText(font.large, selectedEntry->name, display_name, max_width, SCALE1(BUTTON_PADDING*2));
+					max_width = MIN(max_width, text_width);
+					SDL_Surface* text;
+					SDL_Color textColor = uintToColour(THEME_COLOR6_255);
+					text = TTF_RenderUTF8_Blended(font.large, display_name, textColor);
+					GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){
+						SCALE1(PADDING),
+						SCALE1(PADDING),
+						max_width,
+						SCALE1(PILL_SIZE)
+					});
+					SDL_BlitSurface(text, &(SDL_Rect){
+						0,
+						0,
+						max_width-SCALE1(BUTTON_PADDING*2),
+						text->h
+					}, screen, &(SDL_Rect){
+						SCALE1(PADDING+BUTTON_PADDING),
+						SCALE1(PADDING+4)
+					});
+					SDL_FreeSurface(text);
 
-						SDL_Surface* text;
-						SDL_Color textColor = uintToColour(THEME_COLOR6_255);
-						text = TTF_RenderUTF8_Blended(font.large, display_name, textColor);
-						GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){
-							SCALE1(PADDING),
-							SCALE1(PADDING),
-							max_width,
-							SCALE1(PILL_SIZE)
-						});
-						SDL_BlitSurface(text, &(SDL_Rect){
-							0,
-							0,
-							max_width-SCALE1(BUTTON_PADDING*2),
-							text->h
-						}, screen, &(SDL_Rect){
-							SCALE1(PADDING+BUTTON_PADDING),
-							SCALE1(PADDING+4)
-						});
-						SDL_FreeSurface(text);
-					}
-
-					// pagination
-					{
-
-					}
 
 					if(can_resume) GFX_blitButtonGroup((char*[]){ "B","BACK",  NULL }, 0, screen, 0);
 					else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP",  NULL }, 0, screen, 0);
@@ -1879,14 +1869,13 @@ int main (int argc, char *argv[]) {
 
 					if(has_preview) {
 						// lotta memory churn here
-					
 						SDL_Surface* bmp = IMG_Load(preview_path);
-						SDL_Surface* raw_preview = SDL_ConvertSurfaceFormat(bmp, SDL_PIXELFORMAT_RGBA8888, 0);
-						if (raw_preview) {
-							SDL_FreeSurface(bmp); 
-							bmp = raw_preview; 
-						}
 						if(bmp) {
+							SDL_Surface* raw_preview = SDL_ConvertSurfaceFormat(bmp, SDL_PIXELFORMAT_RGBA8888, 0);
+							if (raw_preview) {
+								SDL_FreeSurface(bmp); 
+								bmp = raw_preview; 
+							}
 							int aw = screen->w;
 							int ah = screen->h;
 							int ax = 0;
@@ -1911,6 +1900,7 @@ int main (int argc, char *argv[]) {
 								// need to flip once so streaming_texture1 is updated
 								GFX_flipHidden();
 								GFX_animateSurfaceOpacityAndScale(bmp,screen->w/2,screen->h/2,screen->w*4,screen->h*4,aw,ah,0,255,CFG_getMenuTransitions() ? 150:20,0);
+								
 							} else if(lastScreen == SCREEN_GAMELIST) { 
 								
 								GFX_drawOnLayer(blackBG,0,0,screen->w,screen->h,1.0f,0,1);
@@ -1960,7 +1950,6 @@ int main (int argc, char *argv[]) {
 						SDL_FreeSurface(tmpsur);
 						GFX_blitMessage(font.large, "No Preview", screen, &preview_rect);
 					}
-
 					Entry_free(selectedEntry);
 				}
 				else {
@@ -2193,8 +2182,8 @@ int main (int argc, char *argv[]) {
 				SDL_FreeSurface(tmpNewScreen);
 				animationdirection=0;
 			} 
-				
-			PLAT_drawPill();
+			if(lastScreen == SCREEN_GAMELIST)
+				PLAT_drawPill();
 			GFX_flip(screen);
 			
 			
@@ -2202,7 +2191,8 @@ int main (int argc, char *argv[]) {
 			readytoscroll = 0;
 			
 		} else {
-			PLAT_drawPill();
+			if(lastScreen == SCREEN_GAMELIST)
+				PLAT_drawPill();
 			// honestly this whole thing is here only for the scrolling text, I set it now to run this at 30fps which is enough for scrolling text, should move this to seperate animation function eventually
 			// Uint32 now = SDL_GetTicks();
 			// Uint32 frame_start = now;

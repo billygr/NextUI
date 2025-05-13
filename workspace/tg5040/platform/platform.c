@@ -1265,19 +1265,21 @@ void PLAT_GPU_Flip() {
 
 
 void PLAT_drawPill() {
-		if(!selectionpill.moveTexture)
-			selectionpill.moveTexture = SDL_CreateTexture(vid.renderer,
-		SDL_PIXELFORMAT_RGBA8888,
-		SDL_TEXTUREACCESS_TARGET,
-		FIXED_WIDTH, selectionpill.h);
-		SDL_UpdateTexture(selectionpill.moveTexture, NULL, selectionpill.sur->pixels, selectionpill.sur->pitch);
-		SDL_SetRenderTarget(vid.renderer,vid.target_layer3);
-		SDL_RenderClear(vid.renderer);
-		SDL_Rect moveDst = { selectionpill.x, selectionpill.y, FIXED_WIDTH, selectionpill.h };
-		SDL_RenderCopy(vid.renderer, selectionpill.moveTexture, NULL, &moveDst);
-		SDL_SetRenderTarget(vid.renderer, NULL);
-	
-		PLAT_GPU_Flip();
+		if(selectionpill.x) {
+			if(!selectionpill.moveTexture)
+				selectionpill.moveTexture = SDL_CreateTexture(vid.renderer,
+			SDL_PIXELFORMAT_RGBA8888,
+			SDL_TEXTUREACCESS_TARGET,
+			FIXED_WIDTH, selectionpill.h);
+			SDL_UpdateTexture(selectionpill.moveTexture, NULL, selectionpill.sur->pixels, selectionpill.sur->pitch);
+			SDL_SetRenderTarget(vid.renderer,vid.target_layer3);
+			SDL_RenderClear(vid.renderer);
+			SDL_Rect moveDst = { selectionpill.x, selectionpill.y, FIXED_WIDTH, selectionpill.h };
+			SDL_RenderCopy(vid.renderer, selectionpill.moveTexture, NULL, &moveDst);
+			SDL_SetRenderTarget(vid.renderer, NULL);
+		
+			PLAT_GPU_Flip();
+		}
 	
 }
 
