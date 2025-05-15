@@ -1542,8 +1542,8 @@ static struct Config {
 		.options = (Option[]){
 			[SH_EXTRASETTINGS] = {
 				.key	= "minarch_shaders_settings", 
-				.name	= "Extra settings",
-				.desc	= "Load a premade shaders config", // will call getScreenScalingDesc()
+				.name	= "Optional Shaders Settings",
+				.desc	= "If shaders have extra settings they will show up in this settings menu", // will call getScreenScalingDesc()
 				.default_value = 1,
 				.value = 1,
 				.count = 0,
@@ -1552,8 +1552,8 @@ static struct Config {
 			},
 			[SH_SHADERS_PRESET] = {
 				.key	= "minarch_shaders_preset", 
-				.name	= "Preset",
-				.desc	= "Load a premade shaders config", // will call getScreenScalingDesc()
+				.name	= "Shader / Emulator Settings Preset",
+				.desc	= "Load a premade shaders/emulators config, to try out a preset but not permantly overwite your current settings, exit the game without saving settings!", // will call getScreenScalingDesc()
 				.default_value = 1,
 				.value = 1,
 				.count = 0,
@@ -2370,7 +2370,6 @@ static void Config_restore(void) {
 }
 
 void readShadersPreset(int i) {
-	LOG_info("Doe 44\n");
 		char shaderspath[MAX_PATH] = {0};
 		sprintf(shaderspath, SHADERS_FOLDER "/%s", config.shaders.options[SH_SHADERS_PRESET].values[i]);
 		LOG_info("read shaders preset %s\n",shaderspath);
@@ -2493,13 +2492,13 @@ void loadShaderSettings() {
 	config.shaderpragmas.options = calloc(config.shaders.options[SH_NROFSHADERS].value*32+1, sizeof(Option));
 	for (int i=0; i < config.shaders.options[SH_NROFSHADERS].value; i++) {
 		ShaderParam *params = PLAT_getShaderPragmas(i);
+		if(params == NULL) continue;
 		for (int j = 0; j < 32; j++) {
-			if(params[j].def) {
+			if(params[j].def || params[j].min || params[j].max) {
 				config.shaderpragmas.options[menucount].key = params[j].name;
 				config.shaderpragmas.options[menucount].name = params[j].name;
 				config.shaderpragmas.options[menucount].desc = params[j].name;
 				config.shaderpragmas.options[menucount].default_value = params[j].def;
-				config.shaderpragmas.options[menucount].value = params[j].value;
 				
 				int steps = (int)((params[j].max - params[j].min) / params[j].step) + 1;
 				config.shaderpragmas.options[menucount].values = malloc(sizeof(char *) * (steps + 1));
@@ -2510,6 +2509,8 @@ void loadShaderSettings() {
 					snprintf(str, 16, "%.2f", val);
 					config.shaderpragmas.options[menucount].values[s] = str;
 					config.shaderpragmas.options[menucount].labels[s] = str;
+					if(params[j].value == val)
+						config.shaderpragmas.options[menucount].value = s;
 				}
 				config.shaderpragmas.options[menucount].count = steps;
 				config.shaderpragmas.options[menucount].values[steps] = NULL;
@@ -2523,12 +2524,11 @@ void loadShaderSettings() {
 void initShaders() {
 	for (int i=0; config.shaders.options[i].key; i++) {
 		if(i!=SH_SHADERS_PRESET) {
-			Option* option = &config.shaders.options[i];
+			Option* option = &config.shaders.options[i];;
 			Config_syncShaders(option->key, option->value);
 		}
 	}
-
-	
+	// first initialize the shaders menu and then reinitilize settings to finally apply the extra shader settings to the shaders themselves
 	loadShaderSettings();
 	Config_readOptions();
 	// set shader settings after re-reading conigs
