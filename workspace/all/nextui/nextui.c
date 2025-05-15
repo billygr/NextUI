@@ -1364,9 +1364,6 @@ SDL_Surface* loadFolderBackground(char* rompath, int type)
 	char emutag[255];
 	getEmuName(rompath,emutag);
 	LOG_info("romath ais: %s\n",emutag);
-	char emutag[255];
-	getEmuName(rompath,emutag);
-	LOG_info("romath ais: %s\n",emutag);
 	char imagePath[MAX_PATH];
 	if(type == ENTRY_DIR)
 		snprintf(imagePath, sizeof(imagePath), "%s/%s/bg.png", THEME_PATH,emutag);
