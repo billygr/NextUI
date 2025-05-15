@@ -1381,6 +1381,7 @@ SDL_Surface* loadFolderBackground(char* rompath, int type)
 			snprintf(imagePath, sizeof(imagePath), "%s/.media/bglist.png", rompath);
 	}
 		
+	
 	//LOG_info("Loading folder bg from %s\n", imagePath);
 	if(exists(imagePath)) {
 		SDL_Surface *image = IMG_Load(imagePath);
