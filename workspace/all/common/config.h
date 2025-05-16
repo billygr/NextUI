@@ -191,8 +191,10 @@ void CFG_setGameArtWidth(double zeroToOne);
 // WiFi on/off (if available)
 bool CFG_getWifi(void);
 void CFG_setWifi(bool on);
+
+//bluetooth
 bool CFG_getBluetooth(void);
-void CFG_setBluetooth(bool on);
+void CFG_setBluetooth(bool);
 
 
 void CFG_sync(void);

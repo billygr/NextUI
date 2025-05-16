@@ -2181,9 +2181,10 @@ void SND_init(double sample_rate, double frame_rate) { // plat_sound_init
 void SND_quit(void) { // plat_sound_finish
 	if (!snd.initialized) return;
 	
+	if(!bluetoothEnabled) {
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
-	
+	}
 	if (snd.buffer) {
 		free(snd.buffer);
 		snd.buffer = NULL;

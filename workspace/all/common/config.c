@@ -496,9 +496,9 @@ bool CFG_getBluetooth(void)
     return settings.bluetooth;
 }
 
-void CFG_setBluetooth(bool on)
+void CFG_setBluetooth(bool isBl)
 {
-    settings.bluetooth = on;
+    settings.bluetooth = isBl;
 }
 
 void CFG_get(const char *key, char *value)
@@ -605,7 +605,7 @@ void CFG_get(const char *key, char *value)
     }
     else if (strcmp(key, "bluetooth") == 0)
     {
-        sprintf(value, "%i", (int)(CFG_getBluetooth()));
+        sprintf(value, "%i", CFG_getBluetooth());
     }
 
     // meta, not a real setting
