@@ -2135,9 +2135,11 @@ size_t SND_batchSamples_fixed_rate(const SND_Frame *frames, size_t frame_count) 
 
 void SND_init(double sample_rate, double frame_rate) { // plat_sound_init
 	LOG_info("SND_init\n");
+		SDL_CloseAudio();
+		PLAT_setBluetoothaudio();
 	currentreqfps = frame_rate;
 	SDL_InitSubSystem(SDL_INIT_AUDIO);
-	PLAT_setBluetoothaudio();
+	;
 
 	fps_counter = 0;
 	fps_buffer_index = 0;
@@ -2161,7 +2163,7 @@ void SND_init(double sample_rate, double frame_rate) { // plat_sound_init
 	spec_in.channels = 2;
 	spec_in.samples = SAMPLES;
 	spec_in.callback = SND_audioCallback;
-	
+
 	if (SDL_OpenAudio(&spec_in, &spec_out)<0) LOG_info("SDL_OpenAudio error: %s\n", SDL_GetError());
 	
 	snd.frame_count = ((float)spec_out.freq/SCREEN_FPS)*6; // buffer size based on sample rate out (with 6 frames headroom), ideally you want to use actual FPS but don't know it at this point yet 
