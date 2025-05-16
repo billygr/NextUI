@@ -18,6 +18,7 @@
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
+#include "msettings.h"
 
 #define MAX_DEVICES 10  // Maximum number of Bluetooth devices to store
 
@@ -82,14 +83,14 @@ void scan_bluetooth_devices() {
     FILE *fp;
     char path[1035];
     num_devices = 0;
-
+    LOG_info("test test\n");
     // Run bluetoothctl to list paired devices
     fp = popen("bluetoothctl devices", "r");
     if (fp == NULL) {
         perror("Failed to run bluetoothctl devices");
         return;
     }
-
+LOG_info("hiii test\n");
     // Process paired devices
     printf("all devices:\n");
     while (fgets(path, sizeof(path)-1, fp) != NULL) {
@@ -193,8 +194,7 @@ int main(int argc, char *argv[]) {
 
         PWR_update(&dirty, &show_setting, NULL, NULL);
 
-        if (dirty)
-        {
+    
             GFX_clear(screen);
 
             int max_width = screen->w - SCALE1(PADDING * 2);
@@ -238,9 +238,8 @@ int main(int argc, char *argv[]) {
 
             GFX_flip(screen);
             dirty = 0;
-        }
-        else
-            GFX_sync();
+        
+      
     }
 
     QuitSettings();

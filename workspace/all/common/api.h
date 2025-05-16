@@ -99,7 +99,7 @@ extern double currentcpuse;
 extern int currentcputemp;
 extern int should_rotate;
 extern volatile int useAutoCpu;
-
+extern int bluetoothEnabled;
 enum {
 	ASSET_WHITE_PILL,
 	ASSET_BLACK_PILL,

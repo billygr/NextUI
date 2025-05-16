@@ -107,31 +107,23 @@ echo $CPU_SPEED_PERF > $CPU_PATH
 # BT handling
 # on by default, disable based on systemval setting
 bton=`/usr/trimui/bin/systemval bluetooth`
-if [ "$bton" != "1" ] ; then
-	rfkill block bluetooth
-	killall MtpDaemon # I dont think we need to micro manage this one
-else
-	/etc/bluetooth/bluetoothd start
-	/usr/bin/bluealsa -p a2dp-source&
-	touch /tmp/bluetooth_ready
 
 
-	# Start Bluetooth daemon 
-	/etc/bluetooth/bluetoothd start
-	sleep 3
 
-	export BLUEALSA_TRANSPORT="a2dp-source"
-	export BLUEALSA_PCM_BUFFER_SIZE=4048
-	export BLUEALSA_VOLUME_CTL="softvol"
-	export BLUEALSA_LATENCY=100
-	export BLUEALSA_QUALITY="low"
-	# Start bluealsa in the background and log output
-	bluealsa > /mnt/SDCARD/bluealsa.txt 2>&1 &
-	# Turn Bluetooth power on
-	bluetoothctl power on
-	# Enable scanning for bluetooth devices
-	bluetoothctl scan on > /mnt/SDCARD/bluetoothctl.txt 2>&1 &
-#fi
+blon=$(nextval.elf wifi | sed -n 's/.*"wifi": \([0-9]*\).*/\1/p')
+if [ "$blon" -eq 1 ]; then
+# Start Bluetooth daemon 
+/etc/bluetooth/bluetoothd start
+sleep 3
+
+bluealsa --profile=a2dp-source --a2dp-volume > /mnt/SDCARD/.userdata/tg5040/logs/bluealsa.txt 2>&1 &
+# Turn Bluetooth power on
+bluetoothctl power on
+touch /tmp/bluetooth_ready
+
+# Enable scanning for bluetooth devices
+bluetoothctl scan on > /dev/null 2>&1 &
+fi
 
 # wifi handling
 # on by default, disable based on systemval setting

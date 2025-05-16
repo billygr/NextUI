@@ -1762,32 +1762,40 @@ SDL_Color GFX_mapColor(uint32_t c)
 
 pthread_mutex_t audio_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+  // 1.0 = 100% volume, 0.0 = muted
+int bluetoothEnabled = 0;
 static void SND_audioCallback(void *userdata, uint8_t *stream, int len) {
-	if (snd.frame_count == 0)
-		return;
+    if (snd.frame_count == 0)
+        return;
+	float vol = bluetoothEnabled ? GetVolume()/20.0f:1.0f;
+    int16_t *out = (int16_t *)stream;
+    len /= (sizeof(int16_t) * 2);
 
-	int16_t *out = (int16_t *)stream;
-	len /= (sizeof(int16_t) * 2);
+    while (snd.frame_out != snd.frame_in && len > 0) {
+        // Apply volume control to left channel
+        int left = (int)(snd.buffer[snd.frame_out].left * vol);
+        if (left > 32767) left = 32767;
+        if (left < -32768) left = -32768;
 
-	// Lock the mutex before accessing shared resources
-	
+        // Apply volume control to right channel
+        int right = (int)(snd.buffer[snd.frame_out].right * vol);
+        if (right > 32767) right = 32767;
+        if (right < -32768) right = -32768;
 
-	while (snd.frame_out != snd.frame_in && len > 0) {
-		
-		*out++ = snd.buffer[snd.frame_out].left;
-		*out++ = snd.buffer[snd.frame_out].right;
-		pthread_mutex_lock(&audio_mutex);
-		snd.frame_out += 1;
-		len -= 1;
-		if (snd.frame_out >= snd.frame_count)
-			snd.frame_out = 0;
-		pthread_mutex_unlock(&audio_mutex);
-	}
-	
+        *out++ = (int16_t)left;
+        *out++ = (int16_t)right;
 
-	if (len > 0) {
-		memset(out, 0, len * (sizeof(int16_t) * 2));
-	}
+        pthread_mutex_lock(&audio_mutex);
+        snd.frame_out += 1;
+        len -= 1;
+        if (snd.frame_out >= snd.frame_count)
+            snd.frame_out = 0;
+        pthread_mutex_unlock(&audio_mutex);
+    }
+
+    if (len > 0) {
+        memset(out, 0, len * (sizeof(int16_t) * 2));
+    }
 }
 static void SND_resizeBuffer(void) { // plat_sound_resize_buffer
 

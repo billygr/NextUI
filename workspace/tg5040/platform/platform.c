@@ -3388,7 +3388,7 @@ void PLAT_setBluetoothaudio() {
 				
 					snprintf(value, sizeof(value), "bluealsa:HCI=hci0,DEV=%s", mac_address);
 					setenv("AUDIODEV", value, 1);
-			
+					bluetoothEnabled = 1;
 					break; // Stop after finding the first connected device
 				}
 			}
