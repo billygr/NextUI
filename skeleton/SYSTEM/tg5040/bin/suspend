@@ -1,82 +1,74 @@
 #!/bin/sh
-# set -eu
+set -euo pipefail
 exec 0<&-
 
-# wpa_running=0
-# hciattach_running=0
-# bluetoothd_running=0
+wpa_running=
+hciattach_running=
+bluetoothd_running=
 
-# shellcheck disable=SC2317
-resume() {
-   
+asound_state_dir=/tmp/asound-suspend
 
-    # >&2 echo "Unblocking wireless..."
-    # echo 1 >/sys/class/rfkill/rfkill0/state || true
+before() {
+	>&2 echo "Preparing for suspend..."
 
-    # if [ "$wpa_running" -eq 1 ]; then
-    #     >&2 echo "Starting wpa_supplicant..."
-    #     wpa_supplicant -B -iwlan0 -Dnl80211 -c/etc/wifi/wpa_supplicant.conf -I/etc/wifi/wpa_supplicant_overlay.conf -O/etc/wifi/sockets || true
-    #     udhcpc -i wlan0 &
-    # fi
+	>&2 echo "Saving mixer state..."
+	mkdir -p "$asound_state_dir"
+	alsactl --file "$asound_state_dir/asound.state.pre" store || true
 
-    # if [ "$hciattach_running" -eq 1 ]; then
-    #     >&2 echo "Starting hciattach..."
-    #     /etc/init.d/hciattach start || true
-    # fi
-    # if [ "$bluetoothd_running" -eq 1 ]; then
-    #     >&2 echo "Starting bluetoothd..."
-    #     /etc/bluetooth/bluetoothd start || true
-    #     /usr/bin/bluetoothctl power on || true
-    # fi
-    >&2 echo "Resumed from suspend..."
-    exit 0
+	# if pgrep wpa_supplicant; then
+	# 	wpa_running=1
+	# 	>&2 echo "Stopping wpa_supplicant..."
+	# 	killall -9 wpa_supplicant || true
+	# fi
+	# ifconfig wlan0 down || true
+
+	if pgrep hciattach; then
+		hciattach_running=1
+		>&2 echo "Stopping hciattach..."
+		/etc/init.d/hciattach stop || true
+	fi
+	if pgrep bluetoothd; then
+		bluetoothd_running=1
+		>&2 echo "Stopping bluetoothd..."
+		/etc/bluetooth/bluetoothd stop || true
+		killall -15 bluealsa || true
+	fi
+
+	>&2 echo "Blocking wireless..."
+	echo 0 >/sys/class/rfkill/rfkill0/state || true
 }
 
-main() {
-    >&2 echo "Preparing for suspend..."
+after() {
+	>&2 echo "Resumed from suspend."
 
-    # if pgrep wpa_supplicant; then
-    #     wpa_running=1
-    #     >&2 echo "Stopping wpa_supplicant..."
-    #     killall -9 wpa_supplicant
-    # fi
-    # ifconfig wlan0 down
+	>&2 echo "Restoring mixer state..."
+	alsactl --file "$asound_state_dir/asound.state.post" store || true
+	alsactl --file "$asound_state_dir/asound.state.pre" restore || true
 
-    # if pgrep hciattach; then
-    #     hciattach_running=1
-    #     >&2 echo "Stopping hciattach..."
-    #     /etc/init.d/hciattach stop
-    # fi
-    # if pgrep bluetoothd; then
-    #     bluetoothd_running=1
-    #     >&2 echo "Stopping bluetoothd..."
-    #     /etc/bluetooth/bluetoothd stop
-    #     killall -15 bluealsa
-    # fi
+	# >&2 echo "Unblocking wireless..."
+	# echo 1 >/sys/class/rfkill/rfkill0/state || true
 
-    # >&2 echo "Blocking wireless..."
-    # echo 0 >/sys/class/rfkill/rfkill0/state
+	# if [ -n "$wpa_running" ]; then
+	# 	>&2 echo "Starting wpa_supplicant..."
+	# 	wpa_supplicant -B -iwlan0 -Dnl80211 -c/etc/wifi/wpa_supplicant.conf -I/etc/wifi/wpa_supplicant_overlay.conf -O/etc/wifi/sockets || true
+	# 	(( udhcpc -i wlan0 &)&)
+	# fi
 
-    >&2 echo "Suspending..."
-    max_attempts=20
-    attempt=1
-
-    while ! echo mem > /sys/power/state 2>/dev/null; do
-        >&2 echo "Suspend attempt $attempt failed. Checking for active wakeup sources..."
-        awk '{ if ($2 > 0 && NR > 1) print $1 " is active (" $2 " times)"; }' /sys/kernel/debug/wakeup_sources
-
-        if [ "$attempt" -ge "$max_attempts" ]; then
-            >&2 echo "Maximum suspend attempts reached ($max_attempts). Giving up."
-            break
-        fi
-
-        attempt=$((attempt + 1))
-        >&2 echo "Retrying in 1 seconds..."
-        sleep 1
-    done
-
-    >&2 echo "Resuming..."
-    resume
+	# if [ -n "$hciattach_running" ]; then
+	# 	>&2 echo "Starting hciattach..."
+	# 	/etc/init.d/hciattach start || true
+	# fi
+	if [ -n "$bluetoothd_running" ]; then
+		>&2 echo "Starting bluetoothd..."
+		/etc/bluetooth/bluetoothd start || true
+		/usr/bin/bluetoothctl power on || true
+	fi
 }
 
-main
+before
+
+>&2 echo "Suspending..."
+echo mem >/sys/power/state
+
+# Resume services in background to reduce UI latency
+(( after &)&)
