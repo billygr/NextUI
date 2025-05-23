@@ -499,7 +499,6 @@ SDL_Surface* PLAT_initVideo(void) {
 	// LOG_info("Current render driver: %s\n", info.name);
 	
 
-
 	vid.gl_context = SDL_GL_CreateContext(vid.window);
 	SDL_GL_MakeCurrent(vid.window, vid.gl_context);
 	glViewport(0, 0, w, h);
@@ -1587,7 +1586,6 @@ scaler_t PLAT_getScaler(GFX_Renderer* renderer) {
 	effect.next_scale = renderer->scale;
 	return scale1x1_c16;
 }
-
 void setRectToAspectRatio(SDL_Rect* dst_rect) {
     int x = vid.blit->src_x;
     int y = vid.blit->src_y;
