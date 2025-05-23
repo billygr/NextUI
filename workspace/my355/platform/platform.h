@@ -109,7 +109,7 @@
 
 ///////////////////////////////
 
-//  extern int on_hdmi;
+extern int on_hdmi;
 
 #define FIXED_SCALE 	2
 #define FIXED_WIDTH		640
@@ -131,8 +131,8 @@
 
 ///////////////////////////////
 
-// #define MAIN_ROW_COUNT (on_hdmi?8:6)
-// #define PADDING (on_hdmi?40:10)
+#define MAIN_ROW_COUNT (on_hdmi?8:6)
+#define PADDING (on_hdmi?40:10)
 
 ///////////////////////////////
 
