@@ -8,7 +8,7 @@
 #include "sdl.h"
 
 ///////////////////////////////
-
+#define __MY355__
 #define	BUTTON_UP		BUTTON_NA
 #define	BUTTON_DOWN		BUTTON_NA
 #define	BUTTON_LEFT		BUTTON_NA
@@ -105,10 +105,11 @@
 #define BTN_MOD_BRIGHTNESS 	BTN_MENU
 #define BTN_MOD_PLUS 		BTN_PLUS
 #define BTN_MOD_MINUS 		BTN_MINUS
+#define BTN_MOD_COLORTEMP	BTN_NONE
 
 ///////////////////////////////
 
-extern int on_hdmi;
+//  extern int on_hdmi;
 
 #define FIXED_SCALE 	2
 #define FIXED_WIDTH		640
@@ -130,8 +131,8 @@ extern int on_hdmi;
 
 ///////////////////////////////
 
-#define MAIN_ROW_COUNT (on_hdmi?8:6)
-#define PADDING (on_hdmi?40:10)
+// #define MAIN_ROW_COUNT (on_hdmi?8:6)
+// #define PADDING (on_hdmi?40:10)
 
 ///////////////////////////////
 
