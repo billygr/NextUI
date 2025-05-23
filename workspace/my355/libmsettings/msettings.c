@@ -14,24 +14,49 @@
 
 ///////////////////////////////////////
 
-#define SETTINGS_VERSION 2
-typedef struct Settings {
+// When incrementing SETTINGS_VERSION, update the Settings typedef and add
+// backwards compatibility to InitSettings!
+typedef struct SettingsV8 {
 	int version; // future proofing
 	int brightness;
+	int colortemperature;
 	int headphones;
 	int speaker;
-	int unused[2]; // for future use
+	int mute;
+	int contrast;
+	int saturation;
+	int exposure;
+	int toggled_brightness;
+	int toggled_colortemperature;
+	int toggled_contrast;
+	int toggled_saturation;
+	int toggled_exposure;
+	int toggled_volume;
 	// NOTE: doesn't really need to be persisted but still needs to be shared
 	int jack; 
-	int hdmi; 
-} Settings;
+	int hdmi;
+	int unused[2]; // for future use
+} SettingsV8;
+
+#define SETTINGS_VERSION 8
+typedef SettingsV8 Settings;
 static Settings DefaultSettings = {
 	.version = SETTINGS_VERSION,
-	.brightness = 2,
-	.headphones = 4,
-	.speaker = 8,
+	.brightness = SETTINGS_DEFAULT_BRIGHTNESS,
+	.colortemperature = SETTINGS_DEFAULT_COLORTEMP,
+	.headphones = SETTINGS_DEFAULT_HEADPHONE_VOLUME,
+	.speaker = SETTINGS_DEFAULT_VOLUME,
+	.mute = 0,
+	.contrast = SETTINGS_DEFAULT_CONTRAST,
+	.saturation = SETTINGS_DEFAULT_SATURATION,
+	.exposure = SETTINGS_DEFAULT_EXPOSURE,
+	.toggled_brightness = SETTINGS_DEFAULT_MUTE_NO_CHANGE,
+	.toggled_colortemperature = SETTINGS_DEFAULT_MUTE_NO_CHANGE,
+	.toggled_contrast = SETTINGS_DEFAULT_MUTE_NO_CHANGE,
+	.toggled_saturation = SETTINGS_DEFAULT_MUTE_NO_CHANGE,
+	.toggled_exposure = SETTINGS_DEFAULT_MUTE_NO_CHANGE,
+	.toggled_volume = 0, // mute is default
 	.jack = 0,
-	.hdmi = 0,
 };
 static Settings* settings;
 
@@ -142,6 +167,9 @@ void InitSettings(void) {
 	SetBrightness(GetBrightness());
 	// system("echo $(< " BRIGHTNESS_PATH ")");
 }
+int InitializedSettings(void) {
+	return (settings != NULL);
+}
 void QuitSettings(void) {
 	munmap(settings, shm_size);
 	if (is_host) shm_unlink(SHM_KEY);
@@ -157,6 +185,9 @@ static inline void SaveSettings(void) {
 
 int GetBrightness(void) { // 0-10
 	return settings->brightness;
+}
+int GetColortemp(void) { // 0-10
+	return settings->colortemperature;
 }
 void SetBrightness(int value) {
 	if (settings->hdmi) return;
