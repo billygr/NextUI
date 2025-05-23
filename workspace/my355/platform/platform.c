@@ -496,14 +496,9 @@ SDL_Surface* PLAT_initVideo(void) {
 	SDL_InitSubSystem(SDL_INIT_VIDEO);
 	SDL_ShowCursor(0);
 	
-	vid.window   = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w,h, SDL_WINDOW_SHOWN);
+
 	// LOG_info("window size: %ix%i\n", w,h);
-	
-	// SDL_DisplayMode mode;
-	SDL_GetCurrentDisplayMode(0, &mode);
-	LOG_info("Current display mode: %ix%i (%s)\n", mode.w,mode.h, SDL_GetPixelFormatName(mode.format));
-	if (mode.h>mode.w) rotate = 3; // no longer set on 28xx (because of SDL2 rotation patch?)
-	vid.renderer = SDL_CreateRenderer(vid.window,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
+
 	// SDL_RenderSetLogicalSize(vid.renderer, w,h); // TODO: wrong, but without and with the below it's even wrong-er
 	
 	// int renderer_width,renderer_height;
@@ -576,7 +571,6 @@ SDL_Surface* PLAT_initVideo(void) {
 	// SDL_QueryTexture(vid.stream_layer1, &format, &access_, NULL,NULL);
 	// LOG_info("texture format: %s (streaming: %i)\n", SDL_GetPixelFormatName(format), access_==SDL_TEXTUREACCESS_STREAMING);
 	
-	vid.screen	= SDL_CreateRGBSurface(SDL_SWSURFACE, w,h, FIXED_DEPTH, RGBA_MASK_565);
 	vid.width	= w;
 	vid.height	= h;
 	vid.pitch	= p;
@@ -1677,6 +1671,19 @@ void PLAT_clearShaders() {
 	vid.blit = NULL;
 }
 
+void PLAT_flipHidden() {
+	SDL_RenderClear(vid.renderer);
+	resizeVideo(device_width, device_height, FIXED_PITCH); // !!!???
+	SDL_UpdateTexture(vid.stream_layer1, NULL, vid.screen->pixels, vid.screen->pitch);
+	SDL_RenderCopy(vid.renderer, vid.target_layer1, NULL, NULL);
+	SDL_RenderCopy(vid.renderer, vid.target_layer2, NULL, NULL);
+	SDL_RenderCopy(vid.renderer, vid.stream_layer1, NULL, NULL);
+	SDL_RenderCopy(vid.renderer, vid.target_layer3, NULL, NULL);
+	SDL_RenderCopy(vid.renderer, vid.target_layer4, NULL, NULL);
+	SDL_RenderCopy(vid.renderer, vid.target_layer5, NULL, NULL);
+	//  SDL_RenderPresent(vid.renderer); // no present want to flip  hidden
+}
+
 void PLAT_flip(SDL_Surface* IGNORED, int ignored) {
 	
 	on_hdmi = GetHDMI(); // use settings instead of getInt(HDMI_STATE_PATH)
@@ -2182,28 +2189,28 @@ void PLAT_GL_Swap() {
 
 // tryin to some arm neon optimization for first time for flipping image upside down, they sit in platform cause not all have neon extensions
 void PLAT_pixelFlipper(uint8_t* pixels, int width, int height) {
-    const int rowBytes = width * 4;
-    uint8_t* rowTop;
-    uint8_t* rowBottom;
+    // const int rowBytes = width * 4;
+    // uint8_t* rowTop;
+    // uint8_t* rowBottom;
 
-    for (int y = 0; y < height / 2; ++y) {
-        rowTop = pixels + y * rowBytes;
-        rowBottom = pixels + (height - 1 - y) * rowBytes;
+    // for (int y = 0; y < height / 2; ++y) {
+    //     rowTop = pixels + y * rowBytes;
+    //     rowBottom = pixels + (height - 1 - y) * rowBytes;
 
-        int x = 0;
-        for (; x + 15 < rowBytes; x += 16) {
-            uint8x16_t top = vld1q_u8(rowTop + x);
-            uint8x16_t bottom = vld1q_u8(rowBottom + x);
+    //     int x = 0;
+    //     for (; x + 15 < rowBytes; x += 16) {
+    //         uint8x16_t top = vld1q_u8(rowTop + x);
+    //         uint8x16_t bottom = vld1q_u8(rowBottom + x);
 
-            vst1q_u8(rowTop + x, bottom);
-            vst1q_u8(rowBottom + x, top);
-        }
-        for (; x < rowBytes; ++x) {
-            uint8_t temp = rowTop[x];
-            rowTop[x] = rowBottom[x];
-            rowBottom[x] = temp;
-        }
-    }
+    //         vst1q_u8(rowTop + x, bottom);
+    //         vst1q_u8(rowBottom + x, top);
+    //     }
+    //     for (; x < rowBytes; ++x) {
+    //         uint8_t temp = rowTop[x];
+    //         rowTop[x] = rowBottom[x];
+    //         rowBottom[x] = temp;
+    //     }
+    // }
 }
 
 unsigned char* PLAT_GL_screenCapture(int* outWidth, int* outHeight) {
@@ -2346,6 +2353,12 @@ int PLAT_pickSampleRate(int requested, int max) {
 char* PLAT_getModel(void) {
 	return "Miyoo Flip";
 }
+
+void PLAT_getOsVersionInfo(char* output_str, size_t max_len)
+{
+	return;
+}
+
 
 int PLAT_isOnline(void) {
 	return online;
