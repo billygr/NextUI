@@ -815,7 +815,7 @@ static inline uint32x4_t average32_neon(uint32x4_t a, uint32x4_t b) {
 #endif
 
 // aarch32 asm
-#if defined(__arm__) && !defined(__aarch64__)
+#if defined(__arm__) && !defined(__aarch64__) && !defined(__MY355__)
 static inline uint32_t average16(uint32_t c1, uint32_t c2) {
     uint32_t ret, lowbits = 0x0821;
     asm volatile (
