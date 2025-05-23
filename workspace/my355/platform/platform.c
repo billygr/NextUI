@@ -25,7 +25,7 @@
 #include "opengl.h"
 
 #include <dirent.h>
-
+#include <arm_neon.h>
 
 int on_hdmi = 0;
 
@@ -113,6 +113,8 @@ static int HDMI_enabled(void) {
 	return exactMatch(value, "connected\n");
 }
 
+static uint32_t SDL_transparentBlack = 0;
+
 static struct VID_Context {
 	SDL_Window* window;
 	SDL_Renderer* renderer;
@@ -122,7 +124,6 @@ static struct VID_Context {
 	SDL_Texture* target_layer3;
 	SDL_Texture* target_layer4;
 	SDL_Texture* target_layer5;
-	SDL_Texture* target;
 	SDL_Texture* effect;
 	SDL_Texture* overlay;
 	SDL_Surface* screen;
@@ -287,6 +288,7 @@ GLuint load_shader_from_file(GLenum type, const char* filename, const char* path
 	snprintf(filepath, sizeof(filepath), "%s/%s", path,filename);
     char* source = load_shader_source(filepath);
     if (!source) return 0;
+	LOG_info("load shader from file %s\n",filepath);
     const char* define = NULL;
     const char* default_precision = NULL;
     if (type == GL_VERTEX_SHADER) {
@@ -442,84 +444,43 @@ void PLAT_initShaders() {
 }
 
 SDL_Surface* PLAT_initVideo(void) {
-	LOG_info("PLAT_initVideo\n");
-	
-	// char* model = getenv("RGXX_MODEL");
-	// is_cubexx = exactMatch("RGcubexx", model);
-	// is_rg34xx = exactMatch("RG34xx", model);
-	
-	SDL_version compiled;
-	SDL_version linked;
-	SDL_VERSION(&compiled);
-	SDL_GetVersion(&linked);
-	LOG_info("Compiled SDL version %d.%d.%d ...\n", compiled.major, compiled.minor, compiled.patch);
-	LOG_info("Linked SDL version %d.%d.%d.\n", linked.major, linked.minor, linked.patch);
-
-	int num_displays = SDL_GetNumVideoDisplays();
-	LOG_info("SDL_GetNumVideoDisplays(): %i\n", num_displays);
-
-	LOG_info("Available video drivers:\n");
-	for (int i=0; i<SDL_GetNumVideoDrivers(); i++) {
-		LOG_info("- %s\n", SDL_GetVideoDriver(i));
-	}
-	LOG_info("Current video driver: %s\n", SDL_GetCurrentVideoDriver());
-
-	LOG_info("Available render drivers:\n");
-	for (int i=0; i<SDL_GetNumRenderDrivers(); i++) {
-		SDL_RendererInfo info;
-		SDL_GetRenderDriverInfo(i,&info);
-		LOG_info("- %s\n", info.name);
-	}
-
-	LOG_info("Available display modes:\n");
-	SDL_DisplayMode mode;
-	for (int i=0; i<SDL_GetNumDisplayModes(0); i++) {
-		SDL_GetDisplayMode(0, i, &mode);
-		LOG_info("- %ix%i (%s)\n", mode.w,mode.h, SDL_GetPixelFormatName(mode.format));
-	}
-	SDL_GetCurrentDisplayMode(0, &mode);
-	LOG_info("Current display mode: %ix%i (%s)\n", mode.w,mode.h, SDL_GetPixelFormatName(mode.format));
-
-	// SDL_SetHint(SDL_HINT_RENDER_VSYNC,"0"); // ignored
-
-	int w = FIXED_WIDTH;
-	int h = FIXED_HEIGHT;
-	int p = FIXED_PITCH;
-	if (HDMI_enabled()) { // can't use getHDMI() from settings because it hasn't be initialized yet
-		w = HDMI_WIDTH;
-		h = HDMI_HEIGHT;
-		p = HDMI_PITCH;
-		on_hdmi = 1;
-	}
+	// LOG_info("DEVICE: %s is_brick: %i\n", device, is_brick);
 	
 	SDL_InitSubSystem(SDL_INIT_VIDEO);
 	SDL_ShowCursor(0);
 	
-
-	// LOG_info("window size: %ix%i\n", w,h);
-
-	// SDL_RenderSetLogicalSize(vid.renderer, w,h); // TODO: wrong, but without and with the below it's even wrong-er
-	
-	// int renderer_width,renderer_height;
-	// SDL_GetRendererOutputSize(vid.renderer, &renderer_width, &renderer_height);
-	// LOG_info("output size: %ix%i\n", renderer_width, renderer_height);
-	// if (renderer_width!=w) { // I think this can only be hdmi
-	// 	float x_scale = (float)renderer_width / w;
-	// 	float y_scale = (float)renderer_height / h;
-	// 	SDL_SetWindowSize(vid.window, w / x_scale, h / y_scale);
+	// SDL_version compiled;
+	// SDL_version linked;
+	// SDL_VERSION(&compiled);
+	// SDL_GetVersion(&linked);
+	// LOG_info("Compiled SDL version %d.%d.%d ...\n", compiled.major, compiled.minor, compiled.patch);
+	// LOG_info("Linked SDL version %d.%d.%d.\n", linked.major, linked.minor, linked.patch);
 	//
-	// 	SDL_GetRendererOutputSize(vid.renderer, &renderer_width, &renderer_height);
-	// 	LOG_info("adjusted size: %ix%i\n", renderer_width, renderer_height);
-	// 	x_scale = (float)renderer_width / w;
-	// 	y_scale = (float)renderer_height / h;
-	// 	SDL_RenderSetScale(vid.renderer, x_scale,y_scale);
-	//
-	// 	// for some reason we need to clear and present
-	// 	// after setting the window size or we'll miss
-	// 	// the first frame
-	// 	SDL_RenderClear(vid.renderer);
-	// 	SDL_RenderPresent(vid.renderer);
+	// LOG_info("Available video drivers:\n");
+	// for (int i=0; i<SDL_GetNumVideoDrivers(); i++) {
+	// 	LOG_info("- %s\n", SDL_GetVideoDriver(i));
 	// }
+	// LOG_info("Current video driver: %s\n", SDL_GetCurrentVideoDriver());
+	//
+	// LOG_info("Available render drivers:\n");
+	// for (int i=0; i<SDL_GetNumRenderDrivers(); i++) {
+	// 	SDL_RendererInfo info;
+	// 	SDL_GetRenderDriverInfo(i,&info);
+	// 	LOG_info("- %s\n", info.name);
+	// }
+	//
+	// LOG_info("Available display modes:\n");
+	// SDL_DisplayMode mode;
+	// for (int i=0; i<SDL_GetNumDisplayModes(0); i++) {
+	// 	SDL_GetDisplayMode(0, i, &mode);
+	// 	LOG_info("- %ix%i (%s)\n", mode.w,mode.h, SDL_GetPixelFormatName(mode.format));
+	// }
+	// SDL_GetCurrentDisplayMode(0, &mode);
+	// LOG_info("Current display mode: %ix%i (%s)\n", mode.w,mode.h, SDL_GetPixelFormatName(mode.format));
+	
+	int w = FIXED_WIDTH;
+	int h = FIXED_HEIGHT;
+	int p = FIXED_PITCH;
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
@@ -536,6 +497,7 @@ SDL_Surface* PLAT_initVideo(void) {
 	// SDL_RendererInfo info;
 	// SDL_GetRendererInfo(vid.renderer, &info);
 	// LOG_info("Current render driver: %s\n", info.name);
+	
 
 
 	vid.gl_context = SDL_GL_CreateContext(vid.window);
@@ -549,7 +511,6 @@ SDL_Surface* PLAT_initVideo(void) {
 	vid.target_layer4 = SDL_CreateTexture(vid.renderer,SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET , w,h);
 	vid.target_layer5 = SDL_CreateTexture(vid.renderer,SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET , w,h);
 	
-	vid.target	= NULL; // only needed for non-native sizes
 	
 	vid.screen = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
 
@@ -559,21 +520,14 @@ SDL_Surface* PLAT_initVideo(void) {
 	SDL_SetTextureBlendMode(vid.target_layer3, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureBlendMode(vid.target_layer4, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureBlendMode(vid.target_layer5, SDL_BLENDMODE_BLEND);
-	// TODO: doesn't work here
-	// SDL_SetTextureScaleMode(vid.stream_layer1, SDL_ScaleModeLinear); // we always start at device size so use linear for better upscaling over hdmi
-	
-	// SDL_ScaleMode scale_mode;
-	// SDL_GetTextureScaleMode(vid.stream_layer1, &scale_mode);
-	// LOG_info("texture scale mode: %i\n", scale_mode);
-	
-	// int format;
-	// int access_;
-	// SDL_QueryTexture(vid.stream_layer1, &format, &access_, NULL,NULL);
-	// LOG_info("texture format: %s (streaming: %i)\n", SDL_GetPixelFormatName(format), access_==SDL_TEXTUREACCESS_STREAMING);
 	
 	vid.width	= w;
 	vid.height	= h;
 	vid.pitch	= p;
+
+	PWR_disablePowerOff();
+	
+	SDL_transparentBlack = SDL_MapRGBA(vid.screen->format, 0, 0, 0, 0);
 	
 	device_width	= w;
 	device_height	= h;
@@ -665,8 +619,8 @@ void PLAT_updateShader(int i, const char *filename, int *scale, int *filter, int
         snprintf(filepath, sizeof(filepath), SHADERS_FOLDER "/glsl/%s",filename);
         const char *shaderSource  = load_shader_source(filepath);
         loadShaderPragmas(shader,shaderSource);
-         GLuint vertex_shader1 = load_shader_from_file(GL_VERTEX_SHADER, filename,SHADERS_FOLDER "/glsl");
-    GLuint fragment_shader1 = load_shader_from_file(GL_FRAGMENT_SHADER, filename,SHADERS_FOLDER "/glsl");
+        GLuint vertex_shader1 = load_shader_from_file(GL_VERTEX_SHADER, filename,SHADERS_FOLDER "/glsl");
+   	 	GLuint fragment_shader1 = load_shader_from_file(GL_FRAGMENT_SHADER, filename,SHADERS_FOLDER "/glsl");
         
         
         // Link the shader program
@@ -674,6 +628,7 @@ void PLAT_updateShader(int i, const char *filename, int *scale, int *filter, int
 			LOG_info("Deleting previous shader %i\n",shader->shader_p);
 			glDeleteProgram(shader->shader_p);
 		}
+		LOG_info("doe daan %s\n",filepath);
         shader->shader_p = link_program(vertex_shader1, fragment_shader1,filename);
         
 		shader->u_FrameDirection = glGetUniformLocation( shader->shader_p, "FrameDirection");
@@ -735,34 +690,53 @@ void PLAT_setShaders(int nr) {
 }
 
 
+
 static void clearVideo(void) {
-	SDL_FillRect(vid.screen, NULL, 0);
 	for (int i=0; i<3; i++) {
 		SDL_RenderClear(vid.renderer);
+		SDL_FillRect(vid.screen, NULL, SDL_transparentBlack);
+		SDL_RenderCopy(vid.renderer, vid.stream_layer1, NULL, NULL);
 		SDL_RenderPresent(vid.renderer);
 	}
 }
-
 void PLAT_quitVideo(void) {
-	// clearVideo();
+	clearVideo();
 
+
+	glFinish();
+	SDL_GL_DeleteContext(vid.gl_context);
 	SDL_FreeSurface(vid.screen);
-	if (vid.target) SDL_DestroyTexture(vid.target);
+
 	if (vid.effect) SDL_DestroyTexture(vid.effect);
+	if (vid.overlay) SDL_DestroyTexture(vid.overlay);
+	if (vid.target_layer3) SDL_DestroyTexture(vid.target_layer3);
+	if (vid.target_layer1) SDL_DestroyTexture(vid.target_layer1);
+	if (vid.target_layer2) SDL_DestroyTexture(vid.target_layer2);
+	if (vid.target_layer4) SDL_DestroyTexture(vid.target_layer4);
+	if (vid.target_layer5) SDL_DestroyTexture(vid.target_layer5);
+	if (overlay_path) free(overlay_path);
 	SDL_DestroyTexture(vid.stream_layer1);
 	SDL_DestroyRenderer(vid.renderer);
 	SDL_DestroyWindow(vid.window);
 
-	// system("cat /dev/zero > /dev/fb0 2>/dev/null");
 	SDL_Quit();
+	system("cat /dev/zero > /dev/fb0 2>/dev/null");
 }
 
 void PLAT_clearVideo(SDL_Surface* screen) {
-	SDL_FillRect(screen, NULL, 0); // TODO: revisit
+	// SDL_FillRect(screen, NULL, 0); // TODO: revisit
+	SDL_FillRect(screen, NULL, SDL_transparentBlack);
 }
 void PLAT_clearAll(void) {
-	PLAT_clearVideo(vid.screen); // TODO: revist
+	// ok honestely mixing SDL and OpenGL is really bad, but hey it works just got to sometimes clear gpu stuff and pull context back to SDL 
+	// so yeah clear all layers and pull a flip() to make it switch back to SDL before clearing
+	PLAT_clearLayers(0);
+	PLAT_flip(vid.screen,0);
+
+	// then do normal SDL clearing stuff
+	PLAT_clearVideo(vid.screen); 
 	SDL_RenderClear(vid.renderer);
+
 }
 
 void PLAT_setVsync(int vsync) {
@@ -774,32 +748,27 @@ static int hard_scale = 4; // TODO: base src size, eg. 160x144 can be 4
 static void resizeVideo(int w, int h, int p) {
 	if (w==vid.width && h==vid.height && p==vid.pitch) return;
 	
-	// TODO: minarch disables crisp (and nn upscale before linear downscale) when native
+	// TODO: minarch disables crisp (and nn upscale before linear downscale) when native, is this true?
 	
 	if (w>=device_width && h>=device_height) hard_scale = 1;
-	else if (h>=160) hard_scale = 2; // limits gba and up to 2x (seems sufficient for 640x480)
+	// else if (h>=160) hard_scale = 2; // limits gba and up to 2x (seems sufficient for 640x480)
 	else hard_scale = 4;
 
-	LOG_info("resizeVideo(%i,%i,%i) hard_scale: %i crisp: %i\n",w,h,p, hard_scale,vid.sharpness==SHARPNESS_CRISP);
+	// LOG_info("resizeVideo(%i,%i,%i) hard_scale: %i crisp: %i\n",w,h,p, hard_scale,vid.sharpness==SHARPNESS_CRISP);
 
 	SDL_DestroyTexture(vid.stream_layer1);
-	if (vid.target) SDL_DestroyTexture(vid.target);
 	
-	SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, vid.sharpness==SHARPNESS_SOFT?"1":"0", SDL_HINT_OVERRIDE);
-	vid.stream_layer1 = SDL_CreateTexture(vid.renderer,SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, w,h);
+	// SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, vid.sharpness==SHARPNESS_SOFT?"1":"0", SDL_HINT_OVERRIDE);
+	vid.stream_layer1 = SDL_CreateTexture(vid.renderer,SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, w,h);
+	SDL_SetTextureBlendMode(vid.stream_layer1, SDL_BLENDMODE_BLEND);
 	
-	if (vid.sharpness==SHARPNESS_CRISP) {
-		SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "1", SDL_HINT_OVERRIDE);
-		vid.target = SDL_CreateTexture(vid.renderer,SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_TARGET, w * hard_scale,h * hard_scale);
-	}
-	else {
-		vid.target = NULL;
-	}
-
+	
 
 	vid.width	= w;
 	vid.height	= h;
 	vid.pitch	= p;
+
+	reloadShaderTextures = 1;
 }
 
 SDL_Surface* PLAT_resizeVideo(int w, int h, int p) {
@@ -810,15 +779,14 @@ SDL_Surface* PLAT_resizeVideo(int w, int h, int p) {
 void PLAT_setVideoScaleClip(int x, int y, int width, int height) {
 	// buh
 }
-void PLAT_setNearestNeighbor(int enabled) {
-	// buh
-}
 void PLAT_setSharpness(int sharpness) {
-	if (vid.sharpness==sharpness) return;
-	int p = vid.pitch;
-	vid.pitch = 0;
-	vid.sharpness = sharpness;
-	resizeVideo(vid.width,vid.height,p);
+	if(sharpness==1) {
+		finalScaleFilter=GL_LINEAR;
+	} 
+	else {
+		finalScaleFilter = GL_NEAREST;
+	}
+	reloadShaderTextures = 1;
 }
 
 static struct FX_Context {
@@ -1602,6 +1570,10 @@ void PLAT_animateAndFadeSurface(
 }
 
 
+
+void PLAT_present() {
+	SDL_RenderPresent(vid.renderer);
+}
 void PLAT_setEffect(int next_type) {
 	effect.next_type = next_type;
 }
@@ -1617,6 +1589,7 @@ scaler_t PLAT_getScaler(GFX_Renderer* renderer) {
 	effect.next_scale = renderer->scale;
 	return scale1x1_c16;
 }
+
 void setRectToAspectRatio(SDL_Rect* dst_rect) {
     int x = vid.blit->src_x;
     int y = vid.blit->src_y;
@@ -1705,17 +1678,7 @@ void PLAT_flip(SDL_Surface* IGNORED, int ignored) {
     int y = vid.blit->src_y;
     int w = vid.blit->src_w;
     int h = vid.blit->src_h;
-    if (vid.sharpness == SHARPNESS_CRISP) {
-		
-        SDL_SetRenderTarget(vid.renderer, vid.target);
-        SDL_RenderCopy(vid.renderer, vid.stream_layer1, NULL, NULL);
-        SDL_SetRenderTarget(vid.renderer, NULL);
-        x *= hard_scale;
-        y *= hard_scale;
-        w *= hard_scale;
-        h *= hard_scale;
-        target = vid.target;
-    }
+   
 
     SDL_Rect* src_rect = &(SDL_Rect){x, y, w, h};
     SDL_Rect* dst_rect = &(SDL_Rect){0, 0, device_width, device_height};
@@ -1727,12 +1690,6 @@ void PLAT_flip(SDL_Surface* IGNORED, int ignored) {
     SDL_RenderPresent(vid.renderer);
     vid.blit = NULL;
 }
-
-
-int PLAT_supportsOverscan(void) { return 0; }
-
-///////////////////////////////
-
 
 static int frame_count = 0;
 void runShaderPass(GLuint src_texture, GLuint shader_program, GLuint* target_texture,
@@ -2143,30 +2100,32 @@ void PLAT_GL_Swap() {
     reloadShaderTextures = 0;
 }
 
+
+
 // tryin to some arm neon optimization for first time for flipping image upside down, they sit in platform cause not all have neon extensions
 void PLAT_pixelFlipper(uint8_t* pixels, int width, int height) {
-    // const int rowBytes = width * 4;
-    // uint8_t* rowTop;
-    // uint8_t* rowBottom;
+    const int rowBytes = width * 4;
+    uint8_t* rowTop;
+    uint8_t* rowBottom;
 
-    // for (int y = 0; y < height / 2; ++y) {
-    //     rowTop = pixels + y * rowBytes;
-    //     rowBottom = pixels + (height - 1 - y) * rowBytes;
+    for (int y = 0; y < height / 2; ++y) {
+        rowTop = pixels + y * rowBytes;
+        rowBottom = pixels + (height - 1 - y) * rowBytes;
 
-    //     int x = 0;
-    //     for (; x + 15 < rowBytes; x += 16) {
-    //         uint8x16_t top = vld1q_u8(rowTop + x);
-    //         uint8x16_t bottom = vld1q_u8(rowBottom + x);
+        int x = 0;
+        for (; x + 15 < rowBytes; x += 16) {
+            uint8x16_t top = vld1q_u8(rowTop + x);
+            uint8x16_t bottom = vld1q_u8(rowBottom + x);
 
-    //         vst1q_u8(rowTop + x, bottom);
-    //         vst1q_u8(rowBottom + x, top);
-    //     }
-    //     for (; x < rowBytes; ++x) {
-    //         uint8_t temp = rowTop[x];
-    //         rowTop[x] = rowBottom[x];
-    //         rowBottom[x] = temp;
-    //     }
-    // }
+            vst1q_u8(rowTop + x, bottom);
+            vst1q_u8(rowBottom + x, top);
+        }
+        for (; x < rowBytes; ++x) {
+            uint8_t temp = rowTop[x];
+            rowTop[x] = rowBottom[x];
+            rowBottom[x] = temp;
+        }
+    }
 }
 
 unsigned char* PLAT_GL_screenCapture(int* outWidth, int* outHeight) {
@@ -2228,6 +2187,10 @@ void PLAT_getBatteryStatus(int* is_charging, int* charge) {
 	else if (*charge>10) *charge =  20;
 	else           		 *charge =  10;
 }
+void PLAT_getCPUTemp() {
+	currentcputemp = getInt("/sys/devices/virtual/thermal/thermal_zone0/temp")/1000;
+
+}
 void PLAT_getBatteryStatusFine(int* is_charging, int* charge)
 {
 	// *is_charging = 0;
@@ -2264,7 +2227,6 @@ void PLAT_powerOff(void) {
 
 	SetRawVolume(MUTE_VOLUME_RAW);
 	PLAT_enableBacklight(0);
-	system("echo 255 > /sys/class/leds/work/brightness");
 	SND_quit();
 	VIB_quit();
 	PWR_quit();
@@ -2282,7 +2244,150 @@ void PLAT_powerOff(void) {
 
 ///////////////////////////////
 
+
+double get_time_sec() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1e9; // Convert to seconds
+}
+double get_process_cpu_time_sec() {
+	// this gives cpu time in nanoseconds needed to accurately calculate cpu usage in very short time frames. 
+	// unfortunately about 20ms between meassures seems the lowest i can go to get accurate results
+	// maybe in the future i will find and even more granual way to get cpu time, but might just be a limit of C or Linux alltogether
+    struct timespec ts;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1e9; // Convert to seconds
+}
+
+static pthread_mutex_t currentcpuinfo;
+// a roling average for the display values of about 2 frames, otherwise they are unreadable jumping too fast up and down and stuff to read
+#define ROLLING_WINDOW 120  
+
+volatile int useAutoCpu = 1;
+void *PLAT_cpu_monitor(void *arg) {
+    struct timespec start_time, curr_time;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start_time);
+
+    long clock_ticks_per_sec = sysconf(_SC_CLK_TCK);
+
+    double prev_real_time = get_time_sec();
+    double prev_cpu_time = get_process_cpu_time_sec();
+
+	const int cpu_frequencies[] = {408,450,500,550,  600,650,700,750, 800,850,900,950, 1000,1050,1100,1150, 1200,1250,1300,1350, 1400,1450,1500,1550, 1600,1650,1700,1750, 1800,1850,1900,1950, 2000};
+    const int num_freqs = sizeof(cpu_frequencies) / sizeof(cpu_frequencies[0]);
+    int current_index = 5; 
+
+    double cpu_usage_history[ROLLING_WINDOW] = {0};
+    double cpu_speed_history[ROLLING_WINDOW] = {0};
+    int history_index = 0;
+    int history_count = 0; 
+
+    while (true) {
+        if (useAutoCpu) {
+            double curr_real_time = get_time_sec();
+            double curr_cpu_time = get_process_cpu_time_sec();
+
+            double elapsed_real_time = curr_real_time - prev_real_time;
+            double elapsed_cpu_time = curr_cpu_time - prev_cpu_time;
+            double cpu_usage = 0;
+
+            if (elapsed_real_time > 0) {
+                cpu_usage = (elapsed_cpu_time / elapsed_real_time) * 100.0;
+            }
+
+            pthread_mutex_lock(&currentcpuinfo);
+
+			// the goal here is is to keep cpu usage between 75% and 85% at the lowest possible speed so device stays cool and battery usage is at a minimum
+			// if usage falls out of this range it will either scale a step down or up 
+			// but if usage hits above 95% we need that max boost and we instant scale up to 2000mhz as long as needed
+			// all this happens very fast like 60 times per second, so i'm applying roling averages to display values, so debug screen is readable and gives a good estimate on whats happening cpu wise
+			// the roling averages are purely for displaying, the actual scaling is happening realtime each run. 
+            if (cpu_usage > 95) {
+                current_index = num_freqs - 1; // Instant power needed, cpu is above 95% Jump directly to max boost 2000MHz
+            }
+            else if (cpu_usage > 85 && current_index < num_freqs - 1) { // otherwise try to keep between 75 and 85 at lowest clock speed
+                current_index++; 
+            } 
+            else if (cpu_usage < 75 && current_index > 0) {
+                current_index--; 
+            }
+
+            PLAT_setCustomCPUSpeed(cpu_frequencies[current_index] * 1000);
+
+            cpu_usage_history[history_index] = cpu_usage;
+            cpu_speed_history[history_index] = cpu_frequencies[current_index];
+
+            history_index = (history_index + 1) % ROLLING_WINDOW;
+            if (history_count < ROLLING_WINDOW) {
+                history_count++; 
+            }
+
+            double sum_cpu_usage = 0, sum_cpu_speed = 0;
+            for (int i = 0; i < history_count; i++) {
+                sum_cpu_usage += cpu_usage_history[i];
+                sum_cpu_speed += cpu_speed_history[i];
+            }
+
+            currentcpuse = sum_cpu_usage / history_count;
+            currentcpuspeed = sum_cpu_speed / history_count;
+
+            pthread_mutex_unlock(&currentcpuinfo);
+
+            prev_real_time = curr_real_time;
+            prev_cpu_time = curr_cpu_time;
+			// 20ms really seems lowest i can go, anything lower it becomes innacurate, maybe one day I will find another even more granual way to calculate usage accurately and lower this shit to 1ms haha, altough anything lower than 10ms causes cpu usage in itself so yeah
+			// Anyways screw it 20ms is pretty much on a frame by frame basis anyways, so will anything lower really make a difference specially if that introduces cpu usage by itself? 
+			// Who knows, maybe some CPU engineer will find my comment here one day and can explain, maybe this is looking for the limits of C and needs Assambler or whatever to call CPU instructions directly to go further, but all I know is PUSH and MOV, how did the orignal Roller Coaster Tycoon developer wrote a whole game like this anyways? Its insane..
+            usleep(20000);
+        } else {
+            // Just measure CPU usage without changing frequency
+            double curr_real_time = get_time_sec();
+            double curr_cpu_time = get_process_cpu_time_sec();
+
+            double elapsed_real_time = curr_real_time - prev_real_time;
+            double elapsed_cpu_time = curr_cpu_time - prev_cpu_time;
+
+            if (elapsed_real_time > 0) {
+                double cpu_usage = (elapsed_cpu_time / elapsed_real_time) * 100.0;
+
+                pthread_mutex_lock(&currentcpuinfo);
+
+                cpu_usage_history[history_index] = cpu_usage;
+
+                history_index = (history_index + 1) % ROLLING_WINDOW;
+                if (history_count < ROLLING_WINDOW) {
+                    history_count++;
+                }
+
+                double sum_cpu_usage = 0;
+                for (int i = 0; i < history_count; i++) {
+                    sum_cpu_usage += cpu_usage_history[i];
+                }
+
+                currentcpuse = sum_cpu_usage / history_count;
+
+                pthread_mutex_unlock(&currentcpuinfo);
+            }
+
+            prev_real_time = curr_real_time;
+            prev_cpu_time = curr_cpu_time;
+            usleep(100000); 
+        }
+    }
+}
+
+
 #define GOVERNOR_PATH "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed"
+void PLAT_setCustomCPUSpeed(int speed) {
+    FILE *fp = fopen(GOVERNOR_PATH, "w");
+    if (fp == NULL) {
+        perror("Failed to open scaling_setspeed");
+        return;
+    }
+
+    fprintf(fp, "%d\n", speed);
+    fclose(fp);
+}
 void PLAT_setCPUSpeed(int speed) {
 	int freq = 0;
 	switch (speed) {
@@ -2313,7 +2418,597 @@ void PLAT_getOsVersionInfo(char* output_str, size_t max_len)
 	return;
 }
 
-
 int PLAT_isOnline(void) {
 	return online;
+}
+
+
+
+
+
+void PLAT_chmod(const char *file, int writable)
+{
+    struct stat statbuf;
+    if (stat(file, &statbuf) == 0)
+    {
+        mode_t newMode;
+        if (writable)
+        {
+            // Add write permissions for all users
+            newMode = statbuf.st_mode | S_IWUSR | S_IWGRP | S_IWOTH;
+        }
+        else
+        {
+            // Remove write permissions for all users
+            newMode = statbuf.st_mode & ~(S_IWUSR | S_IWGRP | S_IWOTH);
+        }
+
+        // Apply the new permissions
+        if (chmod(file, newMode) != 0)
+        {
+            printf("chmod error %d %s", writable, file);
+        }
+    }
+    else
+    {
+        printf("stat error %d %s", writable, file);
+    }
+}
+
+
+
+
+void PLAT_initDefaultLeds() {
+	
+}
+void PLAT_initLeds(LightSettings *lights) {
+
+}
+
+#define LED_PATH1 "/sys/class/led_anim/max_scale"
+#define LED_PATH2 "/sys/class/led_anim/max_scale_lr"
+#define LED_PATH3 "/sys/class/led_anim/max_scale_f1f2" 
+
+void PLAT_setLedInbrightness(LightSettings *led)
+{
+   
+}
+void PLAT_setLedBrightness(LightSettings *led)
+{
+  
+}
+void PLAT_setLedEffect(LightSettings *led)
+{
+  
+}
+void PLAT_setLedEffectCycles(LightSettings *led)
+{
+
+    
+}
+void PLAT_setLedEffectSpeed(LightSettings *led)
+{
+   
+}
+void PLAT_setLedColor(LightSettings *led)
+{
+   
+}
+
+//////////////////////////////////////////////
+
+int PLAT_setDateTime(int y, int m, int d, int h, int i, int s) {
+	char cmd[512];
+	sprintf(cmd, "date -s '%d-%d-%d %d:%d:%d'; hwclock -u -w", y,m,d,h,i,s);
+	system(cmd);
+	return 0; // why does this return an int?
+}
+
+#define MAX_LINE_LENGTH 200
+#define ZONE_PATH "/usr/share/zoneinfo"
+#define ZONE_TAB_PATH ZONE_PATH "/zone.tab"
+
+static char cached_timezones[MAX_TIMEZONES][MAX_TZ_LENGTH];
+static int cached_tz_count = -1;
+
+int compare_timezones(const void *a, const void *b) {
+    return strcmp((const char *)a, (const char *)b);
+}
+
+void PLAT_initTimezones() {
+    if (cached_tz_count != -1) { // Already initialized
+        return;
+    }
+    
+    FILE *file = fopen(ZONE_TAB_PATH, "r");
+    if (!file) {
+        LOG_info("Error opening file %s\n", ZONE_TAB_PATH);
+        return;
+    }
+    
+    char line[MAX_LINE_LENGTH];
+    cached_tz_count = 0;
+    
+    while (fgets(line, sizeof(line), file)) {
+        // Skip comment lines
+        if (line[0] == '#' || strlen(line) < 3) {
+            continue;
+        }
+        
+        char *token = strtok(line, "\t"); // Skip country code
+        if (!token) continue;
+        
+        token = strtok(NULL, "\t"); // Skip latitude/longitude
+        if (!token) continue;
+        
+        token = strtok(NULL, "\t\n"); // Extract timezone
+        if (!token) continue;
+        
+        // Check for duplicates before adding
+        int duplicate = 0;
+        for (int i = 0; i < cached_tz_count; i++) {
+            if (strcmp(cached_timezones[i], token) == 0) {
+                duplicate = 1;
+                break;
+            }
+        }
+        
+        if (!duplicate && cached_tz_count < MAX_TIMEZONES) {
+            strncpy(cached_timezones[cached_tz_count], token, MAX_TZ_LENGTH - 1);
+            cached_timezones[cached_tz_count][MAX_TZ_LENGTH - 1] = '\0'; // Ensure null-termination
+            cached_tz_count++;
+        }
+    }
+    
+    fclose(file);
+    
+    // Sort the list alphabetically
+    qsort(cached_timezones, cached_tz_count, MAX_TZ_LENGTH, compare_timezones);
+}
+
+void PLAT_getTimezones(char timezones[MAX_TIMEZONES][MAX_TZ_LENGTH], int *tz_count) {
+    if (cached_tz_count == -1) {
+        LOG_warn("Error: Timezones not initialized. Call PLAT_initTimezones first.\n");
+        *tz_count = 0;
+        return;
+    }
+    
+    memcpy(timezones, cached_timezones, sizeof(cached_timezones));
+    *tz_count = cached_tz_count;
+}
+
+char *PLAT_getCurrentTimezone() {
+
+	char *output = (char *)malloc(256);
+	if (!output) {
+		return false;
+	}
+	FILE *fp = popen("uci get system.@system[0].zonename", "r");
+	if (!fp) {
+		free(output);
+		return false;
+	}
+	fgets(output, 256, fp);
+	pclose(fp);
+	trimTrailingNewlines(output);
+
+	return output;
+}
+
+void PLAT_setCurrentTimezone(const char* tz) {
+	if (cached_tz_count == -1) {
+		LOG_warn("Error: Timezones not initialized. Call PLAT_initTimezones first.\n");
+        return;
+    }
+
+	// This makes it permanent
+	char *zonename = (char *)malloc(256);
+	if (!zonename)
+		return;
+	snprintf(zonename, 256, "uci set system.@system[0].zonename=\"%s\"", tz);
+	system(zonename);
+	//system("uci set system.@system[0].zonename=\"Europe/Berlin\"");
+	system("uci del -q system.@system[0].timezone");
+	system("uci commit system");
+	free(zonename);
+
+	// This fixes the timezone until the next reboot
+	char *tz_path = (char *)malloc(256);
+	if (!tz_path) {
+		return;
+	}
+	snprintf(tz_path, 256, ZONE_PATH "/%s", tz);
+	// replace existing symlink
+	if (unlink("/tmp/localtime") == -1) {
+		LOG_error("Failed to remove existing symlink: %s\n", strerror(errno));
+	}
+	if (symlink(tz_path, "/tmp/localtime") == -1) {
+		LOG_error("Failed to set timezone: %s\n", strerror(errno));
+	}
+	free(tz_path);
+
+	// apply timezone to kernel
+	system("date -k");
+}
+
+bool PLAT_getNetworkTimeSync(void) {
+	char *output = (char *)malloc(256);
+	if (!output) {
+		return false;
+	}
+	FILE *fp = popen("uci get system.ntp.enable", "r");
+	if (!fp) {
+		free(output);
+		return false;
+	}
+	fgets(output, 256, fp);
+	pclose(fp);
+	bool result = (output[0] == '1');
+	free(output);
+	return result;
+}
+
+void PLAT_setNetworkTimeSync(bool on) {
+	// note: this is not the service residing at /etc/init.d/ntpd - that one has hardcoded time server URLs and does not interact with UCI.
+	if (on) {
+		// permanment
+		system("uci set system.ntp.enable=1");
+		system("uci commit system");
+		system("/etc/init.d/ntpd reload");
+	} else {
+		// permanment
+		system("uci set system.ntp.enable=0");
+		system("uci commit system");
+		system("/etc/init.d/ntpd stop");
+	}
+}
+
+/////////////////////////
+
+bool PLAT_supportSSH() { return true; }
+
+/////////////////////////
+
+#include <wifi_intf.h>
+#include "wmg_debug.h"
+#include "wifi_udhcpc.h"
+
+static struct WIFI_Context {
+	const aw_wifi_interface_t *interface;
+	int lastEvent;
+	bool enabled;
+	bool connected;
+} wifi = {
+	.interface = NULL,
+	.lastEvent = STATE_UNKNOWN,
+	.enabled = false,
+	.connected = false};
+
+static void wifi_state_handle(struct Manager *w, int event_label)
+{
+    LOG_info("WMG: event_label 0x%x\n", event_label);
+
+	wifi.lastEvent = w->StaEvt.state;
+	switch (w->StaEvt.state)
+	{
+		 case CONNECTING:
+		 {
+			LOG_info("WMG: Connecting to the network......\n");
+			break;
+		 }
+		 case CONNECTED:
+		 {
+			LOG_info("WMG: Connected to the AP\n");
+			start_udhcpc();
+			wifi.connected = true;
+			break;
+		 }
+		 case OBTAINING_IP:
+		 {
+			LOG_info("WMG: Getting ip address......\n");
+			break;
+		 }
+		 case NETWORK_CONNECTED:
+		 {
+			LOG_info("WMG: Successful network connection\n");
+			break;
+		 }
+		case DISCONNECTED:
+		{
+			wifi.connected = false;
+			LOG_info("WMG: Disconnected,the reason:%s\n", wmg_event_txt(w->StaEvt.event));
+			break;
+		}
+    }
+}
+
+bool PLAT_hasWifi() { return true; }
+void PLAT_wifiInit() {
+	LOG_info("Wifi init\n");
+	wifi.enabled = CFG_getWifi();
+	PLAT_wifiEnable(wifi.enabled);
+}
+
+bool PLAT_wifiEnabled() {
+	// less efficient, more accurate: check "$(cat /sys/class/net/wlan0/flags 2>/dev/null)" != "0x1003"
+	// if we can be reasonably sure that nobody killed wifi and bypassed our code:
+	return wifi.enabled;
+}
+
+#define MAX_CONNECTION_ATTEMPTS 5
+
+void PLAT_wifiEnable(bool on) {
+	if(on) {
+		LOG_info("turning wifi on...\n");
+		
+		// This shouldnt be needed, but we cant really rely on nobody else messing with this stuff. 
+		// Make sure supplicant is up and rfkill doesnt block.
+		system("rfkill unblock wifi");
+		//system("ifconfig wlan0 down");
+		system("/etc/init.d/wpa_supplicant enable");
+		system("/etc/init.d/wpa_supplicant start&");
+
+		int event_label = 42;
+		for (int i = 0 ; i<= MAX_CONNECTION_ATTEMPTS ;i++) {
+			wifi.interface = aw_wifi_on(wifi_state_handle, event_label);
+			if(wifi.interface != NULL)
+				break;
+			ms_sleep(1000);
+			LOG_info("connect wpa_supplicant: tried %d times\n", i+1);
+		}
+		if(wifi.interface == NULL) {
+			LOG_error("failed to turn on wifi.\n");
+			wifi.enabled = false;
+		}
+		else {
+			wifi.enabled = true;
+		}
+	}
+	else if(wifi.interface) {
+		LOG_debug("turning wifi off...\n");
+
+		// Honestly, I'd rather not do this but it seems to keep the  questionable wifi implementation
+		// on Trimui from randomly reconnecting automatically
+		system("rfkill block wifi");
+		//system("ifconfig wlan0 up");
+		system("/etc/init.d/wpa_supplicant stop&");
+
+		int ret = aw_wifi_off(wifi.interface);
+		if(ret < 0)
+		{
+			LOG_error("Test failed: wifi off error!\n");
+			return;
+		}
+		// only necessary for the wmg_log output (debugging)
+		fflush(stdout);
+
+		wifi.interface = NULL;
+		wifi.enabled = false;
+	}
+
+	// Keep config in sync
+	CFG_setWifi(wifi.enabled);
+}
+
+int PLAT_wifiScan(struct WIFI_network *networks, int max)
+{
+	if(wifi.interface == NULL) {
+		LOG_info("PLAT_wifiScan: failed to get wifi interface.\n");
+		return -1;
+	}
+
+	char results[4096];
+	int length = 4096;
+	if(wifi.interface->get_scan_results(results, &length) < 0) {
+		LOG_info("PLAT_wifiScan: failed to get wifi scan results.\n");
+		return -1;
+	}
+
+	LOG_info("%s\n", results);
+
+	// Results will be in this form:
+	//[INFO] bssid / frequency / signal level / flags / ssid
+	//04:b4:fe:32:f9:73	2462	-63	[WPA2-PSK-CCMP][WPS][ESS]	frynet
+	//04:b4:fe:32:e4:50	2437	-56	[WPA2-PSK-CCMP][WPS][ESS]	frynet
+
+	// Parse the results string into a list of WIFI_network elements
+	char *line = strtok(results, "\n");
+	// skip the first line which only has the column headers
+	line = strtok(NULL, "\n");
+	int count = 0;
+	while(line != NULL && count < max) {
+		struct WIFI_network *network = &networks[count];
+		network->bssid[0] = '\0';
+		network->ssid[0] = '\0';
+		network->freq = -1;
+		network->rssi = -1;
+		network->security = SECURITY_NONE;
+
+		char features[128];
+		sscanf(line, "%17[0-9a-fA-F:]\t%d\t%d\t%127[^\t]\t%127[^\n]", network->bssid, &network->freq, &network->rssi,
+			   features, network->ssid);
+		
+		line = strtok(NULL, "\n");
+		
+		// skip over "hidden" networks with empty SSID. We would need to adapt wifimgr classes
+		// to properly support them, I dont think anyone will miss them.
+		if(!network->ssid || !network->ssid[0]) {
+			LOG_info("Ignoring network %s with empty SSID\n", network->bssid);
+		}
+		else {
+			if(containsString(features,"WPA2-PSK"))
+				network->security = SECURITY_WPA2_PSK;
+			else if(containsString(features,"WPA-PSK"))
+				network->security = SECURITY_WPA_PSK;
+			else if(containsString(features,"WEP"))
+				network->security = SECURITY_WEP;
+			else if(containsString(features,"EAP"))
+				network->security = SECURITY_UNSUPPORTED;
+			
+			count++;
+		}
+	}
+	return count;
+}
+
+bool PLAT_wifiConnected()
+{
+	if (wifi.interface) {
+		char ssid[128] = "";
+		int ssid_len = sizeof(ssid);
+		int ret = wifi.interface->is_ap_connected(ssid, &ssid_len);
+		if(ret >= 0 && ssid[0] != '\0') {
+			LOG_info("is_ap_connected: yes - %s\n", ssid);
+			return true;
+		}
+		else {
+			LOG_info("is_ap_connected: %d\n",ret);
+		}
+	}
+	return false;
+}
+
+int PLAT_wifiConnection(struct WIFI_connection *connection_info)
+{
+	if (wifi.interface && connection_info) {
+		if(PLAT_wifiConnected()) {
+			connection_status status;
+			if(wifi.interface->get_connection_info(&status) >= 0) {
+				connection_info->freq = status.freq;
+				connection_info->link_speed = status.link_speed;
+				connection_info->noise = status.noise;
+				connection_info->rssi = status.noise;
+				strcpy(connection_info->ip, status.ip_address);
+				strcpy(connection_info->ssid, status.ssid);
+
+				// get_connection_info returns garbage SSID sometimes
+				char ssid[128] = "";
+				int ssid_len = sizeof(ssid);
+				int ret = wifi.interface->is_ap_connected(ssid, &ssid_len);
+				if(ret == 0)
+					strcpy(connection_info->ssid, ssid);
+			}
+			else {
+				LOG_error("Failed to get Wifi connection info\n");
+			}
+			LOG_info("Connected AP: %s\n", connection_info->ssid);
+			LOG_info("IP address: %s\n", connection_info->ip);
+		}
+		else {
+			connection_info->freq = -1;
+			connection_info->link_speed = -1;
+			connection_info->noise = -1;
+			connection_info->rssi = -1;
+			*connection_info->ip = '\0';
+			*connection_info->ssid = '\0';
+			LOG_info("PLAT_wifiConnection: Not connected\n", connection_info->ssid);
+		}
+
+		return 0;
+	}
+	return -1;
+}
+
+bool PLAT_wifiHasCredentials(char *ssid, WifiSecurityType sec)
+{
+	if(wifi.interface == NULL) {
+		LOG_info("failed to get wifi interface.\n");
+		return false;
+	}
+
+	if(sec == SECURITY_UNSUPPORTED){
+		LOG_info("unsupported WifiDecurityType.\n");
+		return false;
+	}
+
+	char net_id[10]="";
+    int id_len = sizeof(net_id);
+	int ret = wifi.interface->get_netid(ssid, (tKEY_MGMT)sec, net_id, &id_len);
+
+	if (ret == 0) {
+		LOG_info("Got netid %s for ssid %s sectype %d\n", net_id, ssid, sec);
+		return true;
+	}
+	return false;
+}
+
+void PLAT_wifiForget(char *ssid, WifiSecurityType sec)
+{
+	if(wifi.interface == NULL) {
+		LOG_info("failed to get wifi interface.\n");
+		return;
+	}
+
+	if(sec == SECURITY_UNSUPPORTED){
+		LOG_info("unsupported WifiDecurityType.\n");
+		return;
+	}
+
+	int ret = wifi.interface->remove_network(ssid, (tKEY_MGMT)sec);
+	LOG_info("wifi clear_network returned %d for %s with sectype %d\n", ret, ssid, sec);
+}
+
+void PLAT_wifiConnect(char *ssid, WifiSecurityType sec)
+{
+	if(wifi.interface == NULL) {
+		LOG_info("failed to get wifi interface.\n");
+		return;
+		 //-1;
+	}
+
+	if(sec == SECURITY_UNSUPPORTED){
+		LOG_info("unsupported WifiDecurityType.\n");
+		return;
+	}
+
+	LOG_info("Attempting to connect to SSID %s\n", ssid);
+
+	char net_id[10]="";
+    int id_len = sizeof(net_id);
+	int ret = wifi.interface->get_netid(ssid, (tKEY_MGMT)sec, net_id, &id_len);
+	if(ret != 0) {
+		LOG_info("netid failed \n");
+		return;
+	}
+	else {
+		LOG_info("Got netid %s for ssid %s sectype %d\n", net_id, ssid, sec);
+	}
+
+	ret = wifi.interface->connect_ap_with_netid(net_id, 42);
+	LOG_info("wifi connect_ap_with_netid %s returned %d\n", net_id, ret);
+	if (aw_wifi_get_wifi_state() == NETWORK_CONNECTED)
+		LOG_info("wifi connected.\n");
+	else
+		LOG_info("wifi connection failed.\n");
+}
+
+void PLAT_wifiConnectPass(const char *ssid, WifiSecurityType sec, const char* pass)
+{
+	if(wifi.interface == NULL) {
+		LOG_info("failed to get wifi interface.\n");
+		return;
+	}
+
+	if(sec == SECURITY_UNSUPPORTED){
+		LOG_info("unsupported WifiDecurityType.\n");
+		return;
+	}
+
+	int ret = wifi.interface->connect_ap_key_mgmt(ssid, (tKEY_MGMT)sec, pass, 42);
+	LOG_info("wifi connect_ap returned %d\n", ret);
+	if (aw_wifi_get_wifi_state() == NETWORK_CONNECTED)
+		LOG_info("wifi connected.\n");
+	else
+		LOG_info("wifi connection failed.\n");
+}
+
+void PLAT_wifiDisconnect()
+{
+	if(wifi.interface == NULL) {
+		LOG_info("failed to get wifi interface.\n");
+		return;
+	}
+
+	int ret = wifi.interface->disconnect_ap(42);
+	LOG_info("wifi disconnect_ap returned %d\n", ret);
 }
