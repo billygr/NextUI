@@ -791,7 +791,7 @@ struct blend_args {
 	uint16_t *blend_line;
 } blend_args;
 
-#if __ARM_ARCH >= 5 && !defined(__APPLE__) && !defined(__SNAPDRAGON__)
+#if __ARM_ARCH >= 5 && !defined(__APPLE__) && !defined(__SNAPDRAGON__) && !defined(__MY355__)
 static inline uint32_t average16(uint32_t c1, uint32_t c2) {
     uint32_t ret, lowbits = 0x0821;
     asm volatile (
