@@ -791,8 +791,39 @@ struct blend_args {
 	uint16_t *blend_line;
 } blend_args;
 
-// Pure C fallbacks
-static inline uint32_t average16_c(uint32_t c1, uint32_t c2) {
+#if __ARM_ARCH >= 5 && !defined(__APPLE__) && !defined(__SNAPDRAGON__) && !defined(__MY355__)
+static inline uint32_t average16(uint32_t c1, uint32_t c2) {
+	uint32_t ret, lowbits = 0x0821;
+	asm ("eor %0, %2, %3\r\n"
+	     "and %0, %0, %1\r\n"
+	     "add %0, %3, %0\r\n"
+	     "add %0, %0, %2\r\n"
+	     "lsr %0, %0, #1\r\n"
+	     : "=&r" (ret) : "r" (lowbits), "r" (c1), "r" (c2) : );
+	return ret;
+}
+static inline uint32_t average32(uint32_t c1, uint32_t c2) {
+	uint32_t ret, lowbits = 0x08210821;
+
+	asm ("eor %0, %3, %1\r\n"
+	     "and %0, %0, %2\r\n"
+	     "adds %0, %1, %0\r\n"
+	     "and %1, %1, #0\r\n"
+	     "movcs %1, #0x80000000\r\n"
+	     "adds %0, %0, %3\r\n"
+	     "rrx %0, %0\r\n"
+	     "orr %0, %0, %1\r\n"
+	     : "=&r" (ret), "+r" (c2) : "r" (lowbits), "r" (c1) : "cc" );
+
+	return ret;
+}
+
+#define AVERAGE16_NOCHK(c1, c2) (average16((c1), (c2)))
+#define AVERAGE32_NOCHK(c1, c2) (average32((c1), (c2)))
+
+#else
+
+static inline uint32_t average16(uint32_t c1, uint32_t c2) {
 	return (c1 + c2 + ((c1 ^ c2) & 0x0821))>>1;
 }
 

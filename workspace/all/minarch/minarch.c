@@ -6802,17 +6802,24 @@ int main(int argc , char* argv[]) {
 
 	// initialize default shaders
 	GFX_initShaders();
+	LOG_info("test test 1\n");
 	PAD_init();
 	DEVICE_WIDTH = screen->w;
 	DEVICE_HEIGHT = screen->h;
 	DEVICE_PITCH = screen->pitch;
-	LOG_info("DEVICE_SIZzxzzzzzzzzz: %ix%i (%i)\n", DEVICE_WIDTH,DEVICE_HEIGHT,DEVICE_PITCH);
+	// LOG_info("DEVICE_SIZE: %ix%i (%i)\n", DEVICE_WIDTH,DEVICE_HEIGHT,DEVICE_PITCH);
+	LOG_info("test test 2\n");
 	VIB_init();
+		LOG_info("test test 22\n");
 	PWR_init();
+		LOG_info("test test 23\n");
 
 	MSG_init();
+		LOG_info("test test 24\n");
 	IMG_Init(IMG_INIT_PNG);
+		LOG_info("test test 25\n");
 	Core_open(core_path, tag_name);
+LOG_info("test test 3\n");
 	fmt = RETRO_PIXEL_FORMAT_XRGB8888;
 	environment_callback(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt);
 
@@ -6820,11 +6827,13 @@ int main(int argc , char* argv[]) {
 	if (!game.is_open) goto finish;
 	
 	simple_mode = exists(SIMPLE_MODE_PATH);
+	LOG_info("test test 4\n");
 	// restore options
 	Config_load(); // before init?
 	Config_init();
 	Config_readOptions(); // cores with boot logo option (eg. gb) need to load options early
 	setOverclock(overclock);
+LOG_info("test test 5\n");
 	Core_init();
 
 	// TODO: find a better place to do this
@@ -6836,6 +6845,7 @@ int main(int argc , char* argv[]) {
 	Input_init(NULL);
 	Config_readOptions(); // but others load and report options later (eg. nes)
 	Config_readControls(); // restore controls (after the core has reported its defaults)
+	LOG_info("test test 6\n");
 	SND_init(core.sample_rate, core.fps);
 	InitSettings(); // after we initialize audio
 	Menu_init();
@@ -6844,6 +6854,7 @@ int main(int argc , char* argv[]) {
 
 	PWR_warn(1);
 	PWR_disableAutosleep();
+LOG_info("test test 7\n");
 	// force a vsync immediately before loop
 	// for better frame pacing?
 	GFX_clearAll();
@@ -6865,6 +6876,7 @@ int main(int argc , char* argv[]) {
 
 
 	// then initialize custom  shaders from settings
+	LOG_info("test test 8\n");
 	initShaders();
 	Config_readOptions();
 	applyShaderSettings();
