@@ -523,6 +523,10 @@ SDL_Surface* PLAT_initVideo(void) {
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"1");
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER,"opengl");
+	SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION,"1");
+	SDL_SetHint(SDL_HINT_RENDER_VSYNC,"1");
 	
 	// SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
@@ -532,10 +536,7 @@ SDL_Surface* PLAT_initVideo(void) {
 	// SDL_RendererInfo info;
 	// SDL_GetRendererInfo(vid.renderer, &info);
 	// LOG_info("Current render driver: %s\n", info.name);
-	
-	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"1");
-	SDL_SetHint(SDL_HINT_RENDER_DRIVER,"opengl");
-	SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION,"1");
+
 
 	vid.gl_context = SDL_GL_CreateContext(vid.window);
 	SDL_GL_MakeCurrent(vid.window, vid.gl_context);
@@ -1683,93 +1684,50 @@ void PLAT_flipHidden() {
 }
 
 void PLAT_flip(SDL_Surface* IGNORED, int ignored) {
-	
-	on_hdmi = GetHDMI(); // use settings instead of getInt(HDMI_STATE_PATH)
-	
+	// dont think we need this here tbh
+	// SDL_RenderClear(vid.renderer);    
 	if (!vid.blit) {
-		resizeVideo(device_width,device_height,FIXED_PITCH); // !!!???
-		SDL_UpdateTexture(vid.stream_layer1,NULL,vid.screen->pixels,vid.screen->pitch);
-		if (rotate && !on_hdmi) SDL_RenderCopyEx(vid.renderer,vid.stream_layer1,NULL,&(SDL_Rect){0,device_width,device_width,device_height},rotate*90,&(SDL_Point){0,0},SDL_FLIP_NONE);
-		else SDL_RenderCopy(vid.renderer, vid.stream_layer1, NULL,NULL);
-		SDL_RenderPresent(vid.renderer);
-		return;
-	}
-	
-	// uint32_t then = SDL_GetTicks();
-	SDL_UpdateTexture(vid.stream_layer1,NULL,vid.blit->src,vid.blit->src_p);
-	// LOG_info("blit blocked for %ims (%i,%i)\n", SDL_GetTicks()-then,vid.buffer->w,vid.buffer->h);
-	
-	SDL_Texture* target = vid.stream_layer1;
-	int x = vid.blit->src_x;
-	int y = vid.blit->src_y;
-	int w = vid.blit->src_w;
-	int h = vid.blit->src_h;
-	if (vid.sharpness==SHARPNESS_CRISP) {
-		SDL_SetRenderTarget(vid.renderer,vid.target);
-		SDL_RenderCopy(vid.renderer, vid.stream_layer1, NULL,NULL);
-		SDL_SetRenderTarget(vid.renderer,NULL);
-		x *= hard_scale;
-		y *= hard_scale;
-		w *= hard_scale;
-		h *= hard_scale;
-		target = vid.target;
-	}
-	
-	SDL_Rect* src_rect = &(SDL_Rect){x,y,w,h};
-	SDL_Rect* dst_rect = &(SDL_Rect){0,0,device_width,device_height};
-	if (vid.blit->aspect==0) { // native or cropped
-		// LOG_info("src_rect %i,%i %ix%i\n",src_rect->x,src_rect->y,src_rect->w,src_rect->h);
+        resizeVideo(device_width, device_height, FIXED_PITCH); // !!!???
+        SDL_UpdateTexture(vid.stream_layer1, NULL, vid.screen->pixels, vid.screen->pitch);
+		SDL_RenderCopy(vid.renderer, vid.target_layer1, NULL, NULL);
+        SDL_RenderCopy(vid.renderer, vid.target_layer2, NULL, NULL);
+        SDL_RenderCopy(vid.renderer, vid.stream_layer1, NULL, NULL);
+		SDL_RenderCopy(vid.renderer, vid.target_layer3, NULL, NULL);
+		SDL_RenderCopy(vid.renderer, vid.target_layer4, NULL, NULL);
+		SDL_RenderCopy(vid.renderer, vid.target_layer5, NULL, NULL);
+        SDL_RenderPresent(vid.renderer);
+        return;
+    }
+    SDL_UpdateTexture(vid.stream_layer1, NULL, vid.blit->src, vid.blit->src_p);
 
-		int w = vid.blit->src_w * vid.blit->scale;
-		int h = vid.blit->src_h * vid.blit->scale;
-		int x = (device_width - w) / 2;
-		int y = (device_height - h) / 2;
-		dst_rect->x = x;
-		dst_rect->y = y;
-		dst_rect->w = w;
-		dst_rect->h = h;
+    SDL_Texture* target = vid.stream_layer1;
+    int x = vid.blit->src_x;
+    int y = vid.blit->src_y;
+    int w = vid.blit->src_w;
+    int h = vid.blit->src_h;
+    if (vid.sharpness == SHARPNESS_CRISP) {
 		
-		// LOG_info("dst_rect %i,%i %ix%i\n",dst_rect->x,dst_rect->y,dst_rect->w,dst_rect->h);
-	}
-	else if (vid.blit->aspect>0) { // aspect
-		int h = device_height;
-		int w = h * vid.blit->aspect;
-		if (w>device_width) {
-			double ratio = 1 / vid.blit->aspect;
-			w = device_width;
-			h = w * ratio;
-		}
-		int x = (device_width - w) / 2;
-		int y = (device_height - h) / 2;
-		// dst_rect = &(SDL_Rect){x,y,w,h};
-		dst_rect->x = x;
-		dst_rect->y = y;
-		dst_rect->w = w;
-		dst_rect->h = h;
-	}
+        SDL_SetRenderTarget(vid.renderer, vid.target);
+        SDL_RenderCopy(vid.renderer, vid.stream_layer1, NULL, NULL);
+        SDL_SetRenderTarget(vid.renderer, NULL);
+        x *= hard_scale;
+        y *= hard_scale;
+        w *= hard_scale;
+        h *= hard_scale;
+        target = vid.target;
+    }
+
+    SDL_Rect* src_rect = &(SDL_Rect){x, y, w, h};
+    SDL_Rect* dst_rect = &(SDL_Rect){0, 0, device_width, device_height};
+
+    setRectToAspectRatio(dst_rect);
 	
-	int ox,oy;
-	oy = (device_width-device_height)/2;
-	ox = -oy;
-	if (rotate && !on_hdmi) SDL_RenderCopyEx(vid.renderer,target,src_rect,&(SDL_Rect){ox+dst_rect->x,oy+dst_rect->y,dst_rect->w,dst_rect->h},rotate*90,NULL,SDL_FLIP_NONE);
-	else SDL_RenderCopy(vid.renderer, target, src_rect, dst_rect);
-	
-	updateEffect();
-	if (vid.blit && effect.type!=EFFECT_NONE && vid.effect) {
-		// ox = effect.scale - (dst_rect->x % effect.scale);
-		// oy = effect.scale - (dst_rect->y % effect.scale);
-		// if (ox==effect.scale) ox = 0;
-		// if (oy==effect.scale) oy = 0;
-		// LOG_info("rotate: %i ox: %i oy: %i\n", rotate, ox,oy);
-		if (rotate && !on_hdmi) SDL_RenderCopyEx(vid.renderer,vid.effect,&(SDL_Rect){0,0,dst_rect->w,dst_rect->h},&(SDL_Rect){ox+dst_rect->x,oy+dst_rect->y,dst_rect->w,dst_rect->h},rotate*90,NULL,SDL_FLIP_NONE);
-		else SDL_RenderCopy(vid.renderer, vid.effect, &(SDL_Rect){0,0,dst_rect->w,dst_rect->h},dst_rect);
-	}
-	
-	// uint32_t then = SDL_GetTicks();
-	SDL_RenderPresent(vid.renderer);
-	// LOG_info("SDL_RenderPresent blocked for %ims\n", SDL_GetTicks()-then);
-	vid.blit = NULL;
+    SDL_RenderCopy(vid.renderer, target, src_rect, dst_rect);
+
+    SDL_RenderPresent(vid.renderer);
+    vid.blit = NULL;
 }
+
 
 int PLAT_supportsOverscan(void) { return 0; }
 
