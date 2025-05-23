@@ -21,17 +21,17 @@ all:
 	cd ./$(PLATFORM)/keymon && make
 	cd ./all/nextui/ && make
 	cd ./all/minarch/ && make
-	# cd ./all/battery/ && make
+	cd ./all/battery/ && make
 	cd ./all/clock/ && make
-	# cd ./all/libbatmondb/ && make
-	# cd ./all/batmon/ && make
-	# cd ./all/libgametimedb/ && make
-	# cd ./all/gametimectl/ && make
-	# cd ./all/gametime/ && make
+	cd ./all/libbatmondb/ && make
+	cd ./all/batmon/ && make
+	cd ./all/libgametimedb/ && make
+	cd ./all/gametimectl/ && make
+	cd ./all/gametime/ && make
 	cd ./all/minput/ && make
 	cd ./all/syncsettings/ && make
 	cd ./all/nextval/ && make
-	# cd ./all/settings/ && make
+	cd ./all/settings/ && make
 	# cd ./all/ledcontrol/ && make
 	cd ./all/bootlogo/ && make
 # BUILDOPTION: don't forget to uncomment this to rebuild cores from  
