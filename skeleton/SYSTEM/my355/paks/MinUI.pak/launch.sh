@@ -31,7 +31,7 @@ echo -n 0 > /sys/class/gpio/gpio20/value
 echo 0 > /sys/class/miyooio_chr_dev/joy_type
 
 #led
-# echo 0 > /sys/class/leds/work/brightness
+echo 0 > /sys/class/leds/work/brightness
 
 mkdir -p /tmp/miyoo_inputd
 miyoo_inputd &
@@ -68,10 +68,6 @@ cd $(dirname "$0")
 EXEC_PATH="/tmp/nextui_exec"
 NEXT_PATH="/tmp/next"
 touch "$EXEC_PATH" && sync
-
-# enable wifi for now
-wpa_supplicant -B -D nl80211 -iwlan0 -c /userdata/cfg/wpa_supplicant.conf
-
 while [ -f "$EXEC_PATH" ]; do
 	nextui.elf &> $LOGS_PATH/nextui.txt
 	echo $CPU_SPEED_PERF > $CPU_PATH
