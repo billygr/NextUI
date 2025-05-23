@@ -523,6 +523,10 @@ SDL_Surface* PLAT_initVideo(void) {
 	vid.width	= w;
 	vid.height	= h;
 	vid.pitch	= p;
+
+	PWR_disablePowerOff();
+	
+	SDL_transparentBlack = SDL_MapRGBA(vid.screen->format, 0, 0, 0, 0);
 	
 	SDL_transparentBlack = SDL_MapRGBA(vid.screen->format, 0, 0, 0, 0);
 	
@@ -1586,6 +1590,7 @@ scaler_t PLAT_getScaler(GFX_Renderer* renderer) {
 	effect.next_scale = renderer->scale;
 	return scale1x1_c16;
 }
+
 void setRectToAspectRatio(SDL_Rect* dst_rect) {
     int x = vid.blit->src_x;
     int y = vid.blit->src_y;
@@ -2100,28 +2105,28 @@ void PLAT_GL_Swap() {
 
 // tryin to some arm neon optimization for first time for flipping image upside down, they sit in platform cause not all have neon extensions
 void PLAT_pixelFlipper(uint8_t* pixels, int width, int height) {
-    // const int rowBytes = width * 4;
-    // uint8_t* rowTop;
-    // uint8_t* rowBottom;
+    const int rowBytes = width * 4;
+    uint8_t* rowTop;
+    uint8_t* rowBottom;
 
-    // for (int y = 0; y < height / 2; ++y) {
-    //     rowTop = pixels + y * rowBytes;
-    //     rowBottom = pixels + (height - 1 - y) * rowBytes;
+    for (int y = 0; y < height / 2; ++y) {
+        rowTop = pixels + y * rowBytes;
+        rowBottom = pixels + (height - 1 - y) * rowBytes;
 
-    //     int x = 0;
-    //     for (; x + 15 < rowBytes; x += 16) {
-    //         uint8x16_t top = vld1q_u8(rowTop + x);
-    //         uint8x16_t bottom = vld1q_u8(rowBottom + x);
+        int x = 0;
+        for (; x + 15 < rowBytes; x += 16) {
+            uint8x16_t top = vld1q_u8(rowTop + x);
+            uint8x16_t bottom = vld1q_u8(rowBottom + x);
 
-    //         vst1q_u8(rowTop + x, bottom);
-    //         vst1q_u8(rowBottom + x, top);
-    //     }
-    //     for (; x < rowBytes; ++x) {
-    //         uint8_t temp = rowTop[x];
-    //         rowTop[x] = rowBottom[x];
-    //         rowBottom[x] = temp;
-    //     }
-    // }
+            vst1q_u8(rowTop + x, bottom);
+            vst1q_u8(rowBottom + x, top);
+        }
+        for (; x < rowBytes; ++x) {
+            uint8_t temp = rowTop[x];
+            rowTop[x] = rowBottom[x];
+            rowBottom[x] = temp;
+        }
+    }
 }
 
 unsigned char* PLAT_GL_screenCapture(int* outWidth, int* outHeight) {
