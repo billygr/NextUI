@@ -791,7 +791,31 @@ struct blend_args {
 	uint16_t *blend_line;
 } blend_args;
 
-#if __ARM_ARCH >= 5 && !defined(__APPLE__) && !defined(__SNAPDRAGON__) && !defined(__MY355__)
+// Pure C fallbacks
+static inline uint32_t average16_c(uint32_t c1, uint32_t c2) {
+	return (c1 + c2 + ((c1 ^ c2) & 0x0821))>>1;
+}
+
+static inline uint32_t average32_c(uint32_t c1, uint32_t c2) {
+	uint32_t sum = c1 + c2;
+	uint32_t ret = sum + ((c1 ^ c2) & 0x08210821);
+	uint32_t of = ((sum < c1) | (ret < sum)) << 31;
+
+	return (ret >> 1) | of;
+}
+
+// not sure we are activating this anywhere currently, but we could.
+// to be honest, I'm not sure if we're using this function at all right now,
+// but I'm fixing it anyway so might as well improve it.
+#ifdef HAS_NEON 
+// #if defined(__ARM_NEON) || defined(__ARM_NEON__)
+static inline uint32x4_t average32_neon(uint32x4_t a, uint32x4_t b) {
+    return vhaddq_u32(a, b); // vector halving add (a + b) >> 1
+}
+#endif
+
+// aarch32 asm
+#if defined(__arm__) && !defined(__aarch64__) && !defined(__MY355__)
 static inline uint32_t average16(uint32_t c1, uint32_t c2) {
     uint32_t ret, lowbits = 0x0821;
     asm volatile (
