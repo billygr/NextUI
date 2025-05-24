@@ -1,0 +1,24 @@
+#!/bin/sh
+set -euo pipefail
+exec 0<&-
+
+
+
+before() {
+	>&2 echo "Preparing for suspend..."
+	
+}
+
+after() {
+	>&2 echo "Resumed from suspend."
+
+}
+
+before
+
+>&2 echo "Suspending..."
+# sync
+echo mem >/sys/power/state
+
+# Resume services in background to reduce UI latency
+after
