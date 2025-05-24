@@ -524,8 +524,6 @@ SDL_Surface* PLAT_initVideo(void) {
 	vid.width	= w;
 	vid.height	= h;
 	vid.pitch	= p;
-
-	PWR_disablePowerOff();
 	
 	SDL_transparentBlack = SDL_MapRGBA(vid.screen->format, 0, 0, 0, 0);
 	
@@ -2241,6 +2239,8 @@ void PLAT_powerOff(void) {
 	// system("touch /tmp/poweroff && sync");
 	exit(0);
 }
+
+int PLAT_supportsDeepSleep(void) { return 1; }
 
 ///////////////////////////////
 
