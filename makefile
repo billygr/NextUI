@@ -96,6 +96,7 @@ endif
 ifeq ($(PLATFORM), tg5040)
 	cp ./workspace/all/ledcontrol/build/$(PLATFORM)/ledcontrol.elf ./build/EXTRAS/Tools/$(PLATFORM)/LedControl.pak/
 endif
+
 ifeq ($(filter $(PLATFORM),tg5040 my355),$(PLATFORM))
 	cp ./workspace/all/bootlogo/build/$(PLATFORM)/bootlogo.elf ./build/EXTRAS/Tools/$(PLATFORM)/Bootlogo.pak/
 	
