@@ -89,11 +89,16 @@ system:
 ifeq ($(PLATFORM), tg5040)
 	cp ./workspace/all/ledcontrol/build/$(PLATFORM)/ledcontrol.elf ./build/EXTRAS/Tools/$(PLATFORM)/LedControl.pak/
 endif
+
 ifeq ($(filter $(PLATFORM),tg5040 my355),$(PLATFORM))
 	cp ./workspace/all/bootlogo/build/$(PLATFORM)/bootlogo.elf ./build/EXTRAS/Tools/$(PLATFORM)/Bootlogo.pak/
 	
 	# lib dependencies
+ifeq ($(PLATFORM), my355)
+	cp ./workspace/$(PLATFORM)/wifimanager/src/core/libwifimg.so ./build/SYSTEM/$(PLATFORM)/lib/
+endif
 	cp ./workspace/all/minarch/build/$(PLATFORM)/libsamplerate.* ./build/SYSTEM/$(PLATFORM)/lib/
+	cp ./workspace/all/minarch/build/$(PLATFORM)/libsqlite3.* ./build/SYSTEM/$(PLATFORM)/lib/
 	# This is a bandaid fix, needs to be cleaned up if/when we expand to other platforms.
 	cp ./workspace/all/minarch/build/$(PLATFORM)/libzip.* ./build/SYSTEM/$(PLATFORM)/lib/
 	cp ./workspace/all/minarch/build/$(PLATFORM)/libbz2.* ./build/SYSTEM/$(PLATFORM)/lib/
