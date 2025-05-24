@@ -2734,7 +2734,7 @@ int PWR_ignoreSettingInput(int btn, int show_setting) {
 void PWR_update(int* _dirty, int* _show_setting, PWR_callback_t before_sleep, PWR_callback_t after_sleep) {
 	int dirty = _dirty ? *_dirty : 0;
 	int show_setting = _show_setting ? *_show_setting : 0;
-	
+
 	static uint32_t last_input_at = 0; // timestamp of last input (autosleep)
 	static uint32_t checked_charge_at = 0; // timestamp of last time checking charge
 	static uint32_t setting_shown_at = 0; // timestamp when settings started being shown
@@ -2790,10 +2790,12 @@ void PWR_update(int* _dirty, int* _show_setting, PWR_callback_t before_sleep, PW
 	if (screenOffDelay == 0 || (now - last_input_at >= screenOffDelay && PWR_preventAutosleep()))
 		last_input_at = now;
 
+;
 	if (
 		pwr.requested_sleep || // hardware requested sleep
 		(screenOffDelay > 0 && now-last_input_at>=screenOffDelay) || // autosleep
-		(pwr.can_sleep && PAD_justReleased(BTN_SLEEP) && power_pressed_at) // manual sleep
+		(pwr.can_sleep && PAD_justReleased(BTN_SLEEP) && power_pressed_at) || // manual sleep
+		(!lid.is_open && pwr.can_sleep) // lid closed go sleep
 	) {
 		pwr.requested_sleep = 0;
 		if (before_sleep) before_sleep();
