@@ -523,8 +523,6 @@ SDL_Surface* PLAT_initVideo(void) {
 	vid.width	= w;
 	vid.height	= h;
 	vid.pitch	= p;
-
-	PWR_disablePowerOff();
 	
 	SDL_transparentBlack = SDL_MapRGBA(vid.screen->format, 0, 0, 0, 0);
 	
