@@ -28,6 +28,14 @@ CC = $(CROSS_COMPILE)gcc
 CFLAGS  += $(ARCH) -fomit-frame-pointer
 CFLAGS  += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\" -std=gnu99
 LDFLAGS	 += -lmsettings -lsamplerate
+ifeq ($(PLATFORM), tg5040)
+LDFLAGS	 +=  -Llibretro-common -lsrm -lzip
+CFLAGS   += -DHAS_SRM
+endif
+ifeq ($(PLATFORM), my355)
+LDFLAGS	 +=  -Llibretro-common -lsrm -lzip
+CFLAGS   += -DHAS_SRM
+endif
 ifeq ($(PLATFORM), desktop)
 ifeq ($(UNAME_S),Linux)
 CFLAGS += `pkg-config --cflags libzip`

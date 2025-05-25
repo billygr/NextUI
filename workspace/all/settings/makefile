@@ -35,6 +35,10 @@ ifeq ($(PLATFORM), tg5040)
 CFLAGS += -DHAS_WIFIMG
 LDFLAGS +=  -lwifimg
 endif
+ifeq ($(PLATFORM), my355)
+CFLAGS += -DHAS_WIFIMG
+LDFLAGS +=  -lwifimg
+endif
 
 PRODUCT= build/$(PLATFORM)/$(TARGET).elf
 
