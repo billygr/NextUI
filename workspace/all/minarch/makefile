@@ -32,6 +32,10 @@ ifeq ($(PLATFORM), tg5040)
 LDFLAGS	 +=  -Llibretro-common -lsrm -lzip
 CFLAGS   += -DHAS_SRM
 endif
+ifeq ($(PLATFORM), my355)
+LDFLAGS	 +=  -Llibretro-common -lsrm -lzip
+CFLAGS   += -DHAS_SRM
+endif
 ifeq ($(PLATFORM), desktop)
 ifeq ($(UNAME_S),Linux)
 CFLAGS += `pkg-config --cflags libzip`
