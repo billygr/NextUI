@@ -791,39 +791,8 @@ struct blend_args {
 	uint16_t *blend_line;
 } blend_args;
 
-#if __ARM_ARCH >= 5 && !defined(__APPLE__) && !defined(__SNAPDRAGON__) && !defined(__MY355__)
-static inline uint32_t average16(uint32_t c1, uint32_t c2) {
-	uint32_t ret, lowbits = 0x0821;
-	asm ("eor %0, %2, %3\r\n"
-	     "and %0, %0, %1\r\n"
-	     "add %0, %3, %0\r\n"
-	     "add %0, %0, %2\r\n"
-	     "lsr %0, %0, #1\r\n"
-	     : "=&r" (ret) : "r" (lowbits), "r" (c1), "r" (c2) : );
-	return ret;
-}
-static inline uint32_t average32(uint32_t c1, uint32_t c2) {
-	uint32_t ret, lowbits = 0x08210821;
-
-	asm ("eor %0, %3, %1\r\n"
-	     "and %0, %0, %2\r\n"
-	     "adds %0, %1, %0\r\n"
-	     "and %1, %1, #0\r\n"
-	     "movcs %1, #0x80000000\r\n"
-	     "adds %0, %0, %3\r\n"
-	     "rrx %0, %0\r\n"
-	     "orr %0, %0, %1\r\n"
-	     : "=&r" (ret), "+r" (c2) : "r" (lowbits), "r" (c1) : "cc" );
-
-	return ret;
-}
-
-#define AVERAGE16_NOCHK(c1, c2) (average16((c1), (c2)))
-#define AVERAGE32_NOCHK(c1, c2) (average32((c1), (c2)))
-
-#else
-
-static inline uint32_t average16(uint32_t c1, uint32_t c2) {
+// Pure C fallbacks
+static inline uint32_t average16_c(uint32_t c1, uint32_t c2) {
 	return (c1 + c2 + ((c1 ^ c2) & 0x0821))>>1;
 }
 
@@ -2808,7 +2777,6 @@ void PWR_update(int* _dirty, int* _show_setting, PWR_callback_t before_sleep, PW
 	static uint32_t was_muted = -1;
 	if (was_muted == -1 && InitializedSettings())
 		was_muted = GetMute();
-
 	static int was_charging = -1;
 	if (was_charging==-1) {
 		was_charging = pwr.is_charging;
@@ -2819,7 +2787,7 @@ void PWR_update(int* _dirty, int* _show_setting, PWR_callback_t before_sleep, PW
 
 	uint32_t now = SDL_GetTicks();
 	if (was_charging || PAD_anyPressed() || last_input_at==0) last_input_at = now;
-	
+
 	#define CHARGE_DELAY 1000
 	if (dirty || now-checked_charge_at>=CHARGE_DELAY) {
 		int is_charging = pwr.is_charging;
@@ -2835,13 +2803,13 @@ void PWR_update(int* _dirty, int* _show_setting, PWR_callback_t before_sleep, PW
 		} 
 		checked_charge_at = now;
 	}
-	
+
 	if (PAD_justReleased(BTN_POWEROFF) || (power_pressed_at && now-power_pressed_at>=1000)) {
 		if (before_sleep) before_sleep();
 		system("gametimectl.elf stop_all");
 		PWR_powerOff();
 	}
-	
+
 	if (PAD_justPressed(BTN_POWER)) {
 		if (now - pwr.resume_tick < 1000) {
 			LOG_debug("ignoring spurious power button press (just resumed)\n");
@@ -2850,7 +2818,7 @@ void PWR_update(int* _dirty, int* _show_setting, PWR_callback_t before_sleep, PW
 			power_pressed_at = now;
 		}
 	}
-	
+
 	const int screenOffDelay = CFG_getScreenTimeoutSecs() * 1000;
 	if (screenOffDelay == 0 || (now - last_input_at >= screenOffDelay && PWR_preventAutosleep()))
 		last_input_at = now;
@@ -3144,6 +3112,7 @@ FALLBACK_IMPLEMENTATION void PLAT_setLedEffectSpeed(LightSettings *led){}
 // only indicator leds may work when battery is below PWR_LOW_CHARGE
 void LED_setIndicator(int effect,uint32_t color, int cycles,int ledindex) {
 	int lightsize = sizeof(*lights) / sizeof(LightSettings);
+	if(ledindex < lightsize) { 
 		(*lights)[ledindex].effect = effect;
 		(*lights)[ledindex].color1 = color;
 		(*lights)[ledindex].cycles = cycles;
@@ -3152,6 +3121,7 @@ void LED_setIndicator(int effect,uint32_t color, int cycles,int ledindex) {
 		PLAT_setLedEffectCycles(&(*lights)[ledindex]);
 		PLAT_setLedColor(       &(*lights)[ledindex]);
 		PLAT_setLedEffect(      &(*lights)[ledindex]);
+		}
 }
 void LEDS_setIndicator(int effect,uint32_t color, int cycles) {
 	int lightsize = sizeof(*lights) / sizeof(LightSettings);

@@ -112,8 +112,6 @@ static int HDMI_enabled(void) {
 	return exactMatch(value, "connected\n");
 }
 
-static uint32_t SDL_transparentBlack = 0;
-
 static struct VID_Context {
 	SDL_Window* window;
 	SDL_Renderer* renderer;
@@ -140,6 +138,7 @@ static int device_width;
 static int device_height;
 static int device_pitch;
 static int rotate = 0;
+static uint32_t SDL_transparentBlack = 0;
 
 
 
@@ -546,8 +545,6 @@ SDL_Surface* PLAT_initVideo(void) {
 	
 	SDL_transparentBlack = SDL_MapRGBA(vid.screen->format, 0, 0, 0, 0);
 	
-	SDL_transparentBlack = SDL_MapRGBA(vid.screen->format, 0, 0, 0, 0);
-	
 	device_width	= w;
 	device_height	= h;
 	device_pitch	= p;
@@ -634,20 +631,19 @@ void PLAT_updateShader(int i, const char *filename, int *scale, int *filter, int
         SDL_GL_MakeCurrent(vid.window, vid.gl_context);
         LOG_info("loading shader \n");
 
-        char filepath[512];
-        snprintf(filepath, sizeof(filepath), SHADERS_FOLDER "/glsl/%s",filename);
-        const char *shaderSource  = load_shader_source(filepath);
-        loadShaderPragmas(shader,shaderSource);
-        GLuint vertex_shader1 = load_shader_from_file(GL_VERTEX_SHADER, filename,SHADERS_FOLDER "/glsl");
-   	 	GLuint fragment_shader1 = load_shader_from_file(GL_FRAGMENT_SHADER, filename,SHADERS_FOLDER "/glsl");
-        
-        
+		char filepath[512];
+		snprintf(filepath, sizeof(filepath), SHADERS_FOLDER "/glsl/%s",filename);
+		const char *shaderSource  = load_shader_source(filepath);
+		loadShaderPragmas(shader,shaderSource);
+
+		GLuint vertex_shader1 = load_shader_from_file(GL_VERTEX_SHADER, filename,SHADERS_FOLDER "/glsl");
+		GLuint fragment_shader1 = load_shader_from_file(GL_FRAGMENT_SHADER, filename,SHADERS_FOLDER "/glsl");
+			
         // Link the shader program
 		if (shader->shader_p != 0) {
 			LOG_info("Deleting previous shader %i\n",shader->shader_p);
 			glDeleteProgram(shader->shader_p);
 		}
-		LOG_info("doe daan %s\n",filepath);
         shader->shader_p = link_program(vertex_shader1, fragment_shader1,filename);
         
 		shader->u_FrameDirection = glGetUniformLocation( shader->shader_p, "FrameDirection");
@@ -661,6 +657,7 @@ void PLAT_updateShader(int i, const char *filename, int *scale, int *filter, int
 		for (int i = 0; i < shader->num_pragmas; ++i) {
 			shader->pragmas[i].uniformLocation = glGetUniformLocation(shader->shader_p, shader->pragmas[i].name);
 			shader->pragmas[i].value = shader->pragmas[i].def;
+
 			printf("Param: %s = %f (min: %f, max: %f, step: %f)\n",
 				shader->pragmas[i].name,
 				shader->pragmas[i].def,
@@ -706,6 +703,63 @@ void PLAT_setShaders(int nr) {
 	LOG_info("set nr of shaders to %i\n",nr);
 	nrofshaders = nr;
 	reloadShaderTextures = 1;
+}
+
+
+uint32_t PLAT_get_dominant_color() {
+    if (!vid.screen) {
+        fprintf(stderr, "Error: vid.screen is NULL.\n");
+        return 0;
+    }
+
+    if (vid.screen->format->format != SDL_PIXELFORMAT_RGBA8888) {
+        fprintf(stderr, "Error: Surface is not in RGBA8888 format.\n");
+        return 0;
+    }
+
+    uint32_t *pixels = (uint32_t *)vid.screen->pixels;
+    if (!pixels) {
+        fprintf(stderr, "Error: Unable to access pixel data.\n");
+        return 0;
+    }
+
+    int width = vid.screen->w;
+    int height = vid.screen->h;
+    int pixel_count = width * height;
+
+    // Use dynamic memory allocation for the histogram
+    uint32_t *color_histogram = (uint32_t *)calloc(256 * 256 * 256, sizeof(uint32_t));
+    if (!color_histogram) {
+        fprintf(stderr, "Error: Memory allocation failed.\n");
+        return 0;
+    }
+
+    for (int i = 0; i < pixel_count; i++) {
+        uint32_t pixel = pixels[i];
+
+        // Extract R, G, B from RGBA8888
+        uint8_t r = (pixel >> 24) & 0xFF;
+        uint8_t g = (pixel >> 16) & 0xFF;
+        uint8_t b = (pixel >> 8) & 0xFF;
+
+        uint32_t rgb = (r << 16) | (g << 8) | b;
+        color_histogram[rgb]++;
+    }
+
+    // Find the most frequent color
+    uint32_t dominant_color = 0;
+    uint32_t max_count = 0;
+    for (int i = 0; i < 256 * 256 * 256; i++) {
+        if (color_histogram[i] > max_count) {
+            max_count = color_histogram[i];
+            dominant_color = i;
+        }
+    }
+
+    free(color_histogram);
+
+    // Return as RGBA8888 with full alpha
+    return (dominant_color << 8) | 0xFF;
 }
 
 
@@ -759,7 +813,6 @@ void PLAT_clearAll(void) {
 }
 
 void PLAT_setVsync(int vsync) {
-	// buh
 }
 
 static int hard_scale = 4; // TODO: base src size, eg. 160x144 can be 4
@@ -1737,11 +1790,11 @@ void runShaderPass(GLuint src_texture, GLuint shader_program, GLuint* target_tex
 		glBindBuffer(GL_ARRAY_BUFFER, static_VBO);
 
 		float vertices[] = {
-			//   x,     y,    u,    v,    z,    w
-			-1.0f,  1.0f,  0.0f, 1.0f, 0.0f, 1.0f,  // top-left
-			-1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 1.0f,  // bottom-left
-			 1.0f,  1.0f,  1.0f, 1.0f, 0.0f, 1.0f,  // top-right
-			 1.0f, -1.0f,  1.0f, 0.0f, 0.0f, 1.0f   // bottom-right
+			// x,    y,    z,    w,     u,    v,    s,    t
+			-1.0f,  1.0f, 0.0f, 1.0f,  0.0f, 1.0f, 0.0f, 0.0f,  // top-left
+			-1.0f, -1.0f, 0.0f, 1.0f,  0.0f, 0.0f, 0.0f, 0.0f,  // bottom-left
+			1.0f,  1.0f, 0.0f, 1.0f,  1.0f, 1.0f, 0.0f, 0.0f,  // top-right
+			1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f, 0.0f, 0.0f   // bottom-right
 		};
 
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
@@ -1751,18 +1804,14 @@ void runShaderPass(GLuint src_texture, GLuint shader_program, GLuint* target_tex
 	if (shader_program != last_program) {
 		GLint posAttrib = glGetAttribLocation(shader_program, "VertexCoord");
 		if (posAttrib >= 0) {
-			
-			glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+			glVertexAttribPointer(posAttrib, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 			glEnableVertexAttribArray(posAttrib);
 		}
 		GLint texAttrib = glGetAttribLocation(shader_program, "TexCoord");
 		if (texAttrib >= 0) {
-			
-			glVertexAttribPointer(texAttrib, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(2 * sizeof(float)));
+			glVertexAttribPointer(texAttrib,  4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(4 * sizeof(float)));
 			glEnableVertexAttribArray(texAttrib);
 		}
-
-
 
 		if (shader->u_FrameDirection >= 0) glUniform1i(shader->u_FrameDirection, 1);
 		if (shader->u_FrameCount >= 0) glUniform1i(shader->u_FrameCount, frame_count);
@@ -1795,6 +1844,7 @@ void runShaderPass(GLuint src_texture, GLuint shader_program, GLuint* target_tex
 			// }
 			if(*target_texture==0)
 				glGenTextures(1, target_texture);
+			glActiveTexture(GL_TEXTURE0);	
 			glBindTexture(GL_TEXTURE_2D, *target_texture);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
@@ -1831,6 +1881,7 @@ void runShaderPass(GLuint src_texture, GLuint shader_program, GLuint* target_tex
 
 	static GLuint last_bound_texture = 0;
 	if (src_texture != last_bound_texture) {
+		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, src_texture);
 		last_bound_texture = src_texture;
 	}
@@ -1839,8 +1890,7 @@ void runShaderPass(GLuint src_texture, GLuint shader_program, GLuint* target_tex
 	
 	if (shader->texLocation >= 0) glUniform1i(shader->texLocation, 0);  
 	
-
-	if (shader->texelSizeLocation >= 0 && (shader->updated || texelSize[0] != last_texelSize[0] || texelSize[1] != last_texelSize[1])) {
+	if (shader->texelSizeLocation >= 0) {
 		glUniform2fv(shader->texelSizeLocation, 1, texelSize);
 		last_texelSize[0] = texelSize[0];
 		last_texelSize[1] = texelSize[1];

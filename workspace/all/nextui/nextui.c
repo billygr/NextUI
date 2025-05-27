@@ -1906,7 +1906,6 @@ int main (int argc, char *argv[]) {
 
 	LOG_info("Start time time %ims\n",SDL_GetTicks());
 	while (!quit) {
-
 		GFX_startFrame();
 		unsigned long now = SDL_GetTicks();
 		
@@ -1914,14 +1913,13 @@ int main (int argc, char *argv[]) {
 			
 		int selected = top->selected;
 		int total = top->entries->count;
-		
+	
 		PWR_update(&dirty, &show_setting, NULL, NULL);
 		
 		int is_online = PLAT_isOnline();
 		if (was_online!=is_online) dirty = 1;
 		was_online = is_online;
 		int gsanimdir = 0;
-		
 		if (show_version) {
 			if (PAD_justPressed(BTN_B) || PAD_tappedMenu(now)) {
 				show_version = 0;
