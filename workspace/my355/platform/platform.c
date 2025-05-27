@@ -519,7 +519,6 @@ SDL_Surface* PLAT_initVideo(void) {
 	// LOG_info("Current render driver: %s\n", info.name);
 	
 
-
 	vid.gl_context = SDL_GL_CreateContext(vid.window);
 	SDL_GL_MakeCurrent(vid.window, vid.gl_context);
 	glViewport(0, 0, w, h);
@@ -544,6 +543,8 @@ SDL_Surface* PLAT_initVideo(void) {
 	vid.width	= w;
 	vid.height	= h;
 	vid.pitch	= p;
+	
+	SDL_transparentBlack = SDL_MapRGBA(vid.screen->format, 0, 0, 0, 0);
 	
 	SDL_transparentBlack = SDL_MapRGBA(vid.screen->format, 0, 0, 0, 0);
 	
