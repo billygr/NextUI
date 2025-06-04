@@ -225,6 +225,15 @@ typedef struct {
 	GLint uniformLocation;
 } ShaderParam;
 
+enum {
+	LAYER_ALL = 0,
+	LAYER_BACKGROUND = 1,
+	LAYER_TRANSITION = 2,
+	LAYER_THUMBNAIL = 3,
+	LAYER_SCROLLTEXT = 4,
+	LAYER_IDK2 = 5, // unused?
+};
+
 SDL_Surface* GFX_init(int mode);
 #define GFX_resize PLAT_resizeVideo				// (int w, int h, int pitch);
 #define GFX_setScaleClip PLAT_setVideoScaleClip // (int x, int y, int width, int height)
