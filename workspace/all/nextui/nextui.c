@@ -334,7 +334,6 @@ static void Directory_index(Directory* self) {
     if (map) Hash_free(map);  // Free the map at the end
 }
 
-
 static Array* getRoot(void);
 static Array* getRecents(void);
 static Array* getCollection(char* path);
@@ -1350,7 +1349,6 @@ static void Menu_quit(void) {
 
 ///////////////////////////////////////
 
-
 static int dirty = 1;
 static int remember_selection = 0;
 
@@ -1789,12 +1787,11 @@ void enqueueanmimtask(AnimTask* task) {
     SDL_UnlockMutex(animqueueMutex);
 }
 
-
-int animPill(AnimTask *task) {
+void animPill(AnimTask *task) {
 	task->callback = animcallback;
 	enqueueanmimtask(task);
-    return 0;
 }
+
 void initImageLoaderPool() {
     thumbqueueMutex = SDL_CreateMutex();
     bgqueueMutex = SDL_CreateMutex();
@@ -1822,7 +1819,7 @@ enum {
 	// meta
 	SCREEN_GAME,
 	SCREEN_OFF
-	};
+};
 static int lastScreen = SCREEN_OFF;
 static int currentScreen = SCREEN_GAMELIST;
 
@@ -1863,8 +1860,6 @@ int main (int argc, char *argv[]) {
 	// make sure we have no running games logged as active anymore (we might be launching back into the UI here)
 	system("gametimectl.elf stop_all");
 	
-	// now that (most of) the heavy lifting is done, take a load off
-	// PWR_setCPUSpeed(CPU_SPEED_MENU);
 	GFX_setVsync(VSYNC_STRICT);
 
 	PAD_reset();
@@ -1874,6 +1869,9 @@ int main (int argc, char *argv[]) {
 	int show_setting = 0; // 1=brightness,2=volume
 	int was_online = PLAT_isOnline();
 
+	pthread_t cpucheckthread;
+    pthread_create(&cpucheckthread, NULL, PLAT_cpu_monitor, NULL);
+
 	int selected_row = top->selected - top->start;
 	float targetY;
 	float previousY;
@@ -1882,26 +1880,17 @@ int main (int argc, char *argv[]) {
 	char folderBgPath[1024];
 	folderbgbmp = NULL;
 
-	SDL_Surface * blackBG =SDL_CreateRGBSurfaceWithFormat(0,screen->w,screen->h,32,SDL_PIXELFORMAT_RGBA8888);
+	SDL_Surface * blackBG = SDL_CreateRGBSurfaceWithFormat(0,screen->w,screen->h,32,SDL_PIXELFORMAT_RGBA8888);
 	SDL_FillRect(blackBG,NULL,SDL_MapRGBA(screen->format,0,0,0,255));
 
-	static int readytoscroll = 0;
-
-	pthread_t cpucheckthread;
-    pthread_create(&cpucheckthread, NULL, PLAT_cpu_monitor, NULL);
 	SDL_LockMutex(animMutex);
-	globalpill = SDL_CreateRGBSurfaceWithFormat(
-						SDL_SWSURFACE, screen->w, SCALE1(PILL_SIZE), FIXED_DEPTH, SDL_PIXELFORMAT_RGBA8888
-					);
-	globalText = SDL_CreateRGBSurfaceWithFormat(
-						SDL_SWSURFACE, screen->w, SCALE1(PILL_SIZE), FIXED_DEPTH, SDL_PIXELFORMAT_RGBA8888
-					);
+	globalpill = SDL_CreateRGBSurfaceWithFormat(SDL_SWSURFACE, screen->w, SCALE1(PILL_SIZE), FIXED_DEPTH, SDL_PIXELFORMAT_RGBA8888);
+	globalText = SDL_CreateRGBSurfaceWithFormat(SDL_SWSURFACE, screen->w, SCALE1(PILL_SIZE), FIXED_DEPTH, SDL_PIXELFORMAT_RGBA8888);
 	static int globallpillW = 0;
 	SDL_UnlockMutex(animMutex);
 
-	LOG_info("Start time time %ims\n",SDL_GetTicks());
+	//LOG_info("Start time time %ims\n",SDL_GetTicks());
 	while (!quit) {
-
 		GFX_startFrame();
 		unsigned long now = SDL_GetTicks();
 		
@@ -1935,10 +1924,6 @@ int main (int argc, char *argv[]) {
 			else if (recents->count > 0 && PAD_justReleased(BTN_A)) {
 				// this will drop us back into game switcher after leaving the game
 				putFile(GAME_SWITCHER_PERSIST_PATH, "unused");
-				// TODO: This is crappy af - putting this here since it works, but
-				// super inefficient. Why are Recents not decorated with type, and need
-				// to be remade into Entries via getRecents()? - need to understand the 
-				// architecture more...
 				startgame = 1;
 				Entry *selectedEntry = entryFromRecent(recents->items[switcher_selected]);
 				should_resume = can_resume;
@@ -2175,11 +2160,10 @@ int main (int argc, char *argv[]) {
 			}
 			else if(currentScreen == SCREEN_GAMESWITCHER) {
 				GFX_clearLayers(LAYER_ALL);
-				// For all recents with resumable state (i.e. has savegame), show game switcher carousel
-
 				ox = 0;
 				oy = 0;
-
+				
+				// For all recents with resumable state (i.e. has savegame), show game switcher carousel
 				if(recents->count > 0) {
 					Entry *selectedEntry = entryFromRecent(recents->items[switcher_selected]);
 					readyResume(selectedEntry);
@@ -2384,9 +2368,8 @@ int main (int argc, char *argv[]) {
 						if (i == top->start && !(had_thumb)) available_width -= ow;
 						trimSortingMeta(&entry_name);
 
-						if (entry_unique) { // Only render if a unique name exists
+						if (entry_unique) // Only render if a unique name exists
 							trimSortingMeta(&entry_unique);
-						} 
 						
 						char display_name[256];
 						int text_width = GFX_getTextWidth(font.large, entry_unique ? entry_unique : entry_name,display_name, available_width, SCALE1(BUTTON_PADDING * 2));
@@ -2405,12 +2388,8 @@ int main (int argc, char *argv[]) {
 							is_scrolling = GFX_resetScrollText(font.large,display_name, max_width - SCALE1(BUTTON_PADDING*2));
 							SDL_LockMutex(animMutex);
 							if(globalpill) SDL_FreeSurface(globalpill);
-							globalpill = SDL_CreateRGBSurfaceWithFormat(
-								SDL_SWSURFACE, max_width, SCALE1(PILL_SIZE), FIXED_DEPTH, SDL_PIXELFORMAT_RGBA8888
-							);
-							GFX_blitPillDark(ASSET_WHITE_PILL, globalpill, &(SDL_Rect){
-								0,0, max_width, SCALE1(PILL_SIZE)
-							});
+							globalpill = SDL_CreateRGBSurfaceWithFormat(SDL_SWSURFACE, max_width, SCALE1(PILL_SIZE), FIXED_DEPTH, SDL_PIXELFORMAT_RGBA8888);
+							GFX_blitPillDark(ASSET_WHITE_PILL, globalpill, &(SDL_Rect){0,0, max_width, SCALE1(PILL_SIZE)});
 							globallpillW =  max_width;
 							SDL_UnlockMutex(animMutex);
 							AnimTask* task = malloc(sizeof(AnimTask));
@@ -2524,7 +2503,6 @@ int main (int argc, char *argv[]) {
 				GFX_flip(screen);
 
 			dirty = 0;
-			readytoscroll = 0;
 		} else if(animationDraw || folderbgchanged || thumbchanged || is_scrolling) {
 			// honestly this whole thing is here only for the scrolling text, I set it now to run this at 30fps which is enough for scrolling text, should move this to seperate animation function eventually
 			Uint32 now = SDL_GetTicks();
