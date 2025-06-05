@@ -315,10 +315,15 @@ SDL_Surface* GFX_init(int mode)
 	asset_rects[ASSET_WIFI]				= (SDL_Rect){SCALE4(23,64,14,10)};
 	asset_rects[ASSET_WIFI_MED]			= (SDL_Rect){SCALE4(38,64,14,10)};
 	asset_rects[ASSET_WIFI_LOW]			= (SDL_Rect){SCALE4(54,64,14,10)};
+	asset_rects[ASSET_WIFI_OFF]			= (SDL_Rect){SCALE4(23,75,14,10)};
 	asset_rects[ASSET_CHECKCIRCLE]		= (SDL_Rect){SCALE4(68,63,12,12)};
 	asset_rects[ASSET_LOCK]				= (SDL_Rect){SCALE4(81,64,8,11)};
 	asset_rects[ASSET_HOLE]				= (SDL_Rect){SCALE4( 1,63,20,20)};
 	asset_rects[ASSET_GAMEPAD]			= (SDL_Rect){SCALE4(92,51,18,10)};
+	asset_rects[ASSET_SETTINGS]			= (SDL_Rect){SCALE4(93,64,10,10)};
+	asset_rects[ASSET_POWEROFF]			= (SDL_Rect){SCALE4(80,77,10,10)};
+	asset_rects[ASSET_SUSPEND]			= (SDL_Rect){SCALE4(68,77,11,10)};
+	asset_rects[ASSET_RESTART]			= (SDL_Rect){SCALE4(93,77,10,10)};
 
 	char asset_path[MAX_PATH];
 	sprintf(asset_path, RES_PATH "/assets@%ix.png", FIXED_SCALE);
@@ -1401,24 +1406,33 @@ void GFX_blitPillDark(int asset, SDL_Surface* dst, SDL_Rect* dst_rect) {
 	GFX_blitPillColor(asset, dst, dst_rect, THEME_COLOR1, RGB_WHITE);
 }
 void GFX_blitRect(int asset, SDL_Surface* dst, SDL_Rect* dst_rect) {
+	int c = asset_rgbs[asset];
+	GFX_blitRectColor(asset, dst, dst_rect, c);
+}
+void GFX_blitRectColor(int asset, SDL_Surface* dst, SDL_Rect* dst_rect, uint32_t asset_color){
 	int x = dst_rect->x;
 	int y = dst_rect->y;
 	int w = dst_rect->w;
 	int h = dst_rect->h;
-	int c = asset_rgbs[asset];
 	
 	SDL_Rect* rect = &asset_rects[asset];
 	int d = rect->w;
 	int r = d / 2;
 
-	GFX_blitAssetColor(asset, &(SDL_Rect){0,0,r,r}, dst, &(SDL_Rect){x,y}, THEME_COLOR1);
-	SDL_FillRect(dst, &(SDL_Rect){x+r,y,w-d,r}, c);
-	GFX_blitAssetColor(asset, &(SDL_Rect){r,0,r,r}, dst, &(SDL_Rect){x+w-r,y}, THEME_COLOR1);
-	SDL_FillRect(dst, &(SDL_Rect){x,y+r,w,h-d}, c);
-	GFX_blitAssetColor(asset, &(SDL_Rect){0,r,r,r}, dst, &(SDL_Rect){x,y+h-r}, THEME_COLOR1);
-	SDL_FillRect(dst, &(SDL_Rect){x+r,y+h-r,w-d,r}, c);
-	GFX_blitAssetColor(asset, &(SDL_Rect){r,r,r,r}, dst, &(SDL_Rect){x+w-r,y+h-r}, THEME_COLOR1);
+	GFX_blitAssetColor(asset, &(SDL_Rect){0,0,r,r}, dst, &(SDL_Rect){x,y}, asset_color);
+	SDL_FillRect(dst, &(SDL_Rect){x+r,y,w-d,r}, asset_color);
+	GFX_blitAssetColor(asset, &(SDL_Rect){r,0,r,r}, dst, &(SDL_Rect){x+w-r,y}, asset_color);
+	SDL_FillRect(dst, &(SDL_Rect){x,y+r,w,h-d}, asset_color);
+	GFX_blitAssetColor(asset, &(SDL_Rect){0,r,r,r}, dst, &(SDL_Rect){x,y+h-r}, asset_color);
+	SDL_FillRect(dst, &(SDL_Rect){x+r,y+h-r,w-d,r}, asset_color);
+	GFX_blitAssetColor(asset, &(SDL_Rect){r,r,r,r}, dst, &(SDL_Rect){x+w-r,y+h-r}, asset_color);
 }
+
+void GFX_assetRect(int asset, SDL_Rect* dst_rect)
+{
+	*dst_rect = asset_rects[asset];
+}
+
 int GFX_blitBattery(SDL_Surface* dst, SDL_Rect* dst_rect) {
 	// LOG_info("dst: %p\n", dst);
 	int x = 0;
@@ -2510,7 +2524,7 @@ FALLBACK_IMPLEMENTATION void PLAT_pollInput(void) {
 				btn = BTN_NONE;
 			}
 		}
-		else if (event.type==SDL_QUIT) PWR_powerOff();
+		else if (event.type==SDL_QUIT) PWR_powerOff(0);
 		
 		if (btn==BTN_NONE) continue;
 		
@@ -2808,7 +2822,7 @@ void PWR_update(int* _dirty, int* _show_setting, PWR_callback_t before_sleep, PW
 	if (PAD_justReleased(BTN_POWEROFF) || (power_pressed_at && now-power_pressed_at>=1000)) {
 		if (before_sleep) before_sleep();
 		system("gametimectl.elf stop_all");
-		PWR_powerOff();
+		PWR_powerOff(0);
 	}
 	
 	if (PAD_justPressed(BTN_POWER)) {
@@ -2902,7 +2916,7 @@ void PWR_enableSleep(void) {
 void PWR_disablePowerOff(void) {
 	pwr.can_poweroff = 0;
 }
-void PWR_powerOff(void) {
+void PWR_powerOff(int reboot) {
 	if (pwr.can_poweroff) {
 		
 		int w = FIXED_WIDTH;
@@ -2916,8 +2930,17 @@ void PWR_powerOff(void) {
 		gfx.screen = GFX_resize(w,h,p);
 		
 		char* msg;
-		if (HAS_POWER_BUTTON || HAS_POWEROFF_BUTTON) msg = exists(AUTO_RESUME_PATH) ? (char*)"Quicksave created,\npowering off" :  (char*)"Powering off";
-		else msg = exists(AUTO_RESUME_PATH) ?  (char*)"Quicksave created,\npower off now" :  (char*)"Power off now";
+		if (HAS_POWER_BUTTON || HAS_POWEROFF_BUTTON) {
+			if(exists(AUTO_RESUME_PATH))
+				msg = (char *)"Quicksave created,\npowering off";
+			else if(reboot > 0)
+				msg = (char *)"Rebooting";
+			else 
+				msg = (char *)"Powering off";
+		} 
+		else {
+			msg = exists(AUTO_RESUME_PATH) ?  (char*)"Quicksave created,\npower off now" :  (char*)"Power off now";
+		} 
 		
 		// LOG_info("PWR_powerOff %s (%ix%i)\n", gfx.screen, gfx.screen->w, gfx.screen->h);
 		
@@ -2928,7 +2951,7 @@ void PWR_powerOff(void) {
 		GFX_blitMessage(font.large, msg, gfx.screen,&(SDL_Rect){0,0,gfx.screen->w,gfx.screen->h}); //, NULL);
 		GFX_flip(gfx.screen);
 
-		PLAT_powerOff();
+		PLAT_powerOff(reboot);
 	}
 }
 
@@ -3021,7 +3044,7 @@ static void PWR_waitForWake(void) {
 					}
 				}
 				if (pwr.can_poweroff) {
-					PWR_powerOff();
+					PWR_powerOff(0);
 				}
 			}
 		}

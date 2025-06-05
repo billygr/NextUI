@@ -70,6 +70,12 @@ static void Array_free(Array* self) {
 	free(self->items); 
 	free(self);
 }
+static void Array_yoink(Array* self, Array* other) {
+	// append entries to self and take ownership
+	for (int i = 0; i < other->count; i++)
+        Array_push(self, other->items[i]);
+    Array_free(other); // `self` now owns the entries
+}
 
 static int StringArray_indexOf(Array* self, char* str) {
 	for (int i=0; i<self->count; i++) {
@@ -118,6 +124,7 @@ enum EntryType {
 	ENTRY_DIR,
 	ENTRY_PAK,
 	ENTRY_ROM,
+	ENTRY_DIP,
 };
 typedef struct Entry {
 	char* path;
@@ -138,6 +145,13 @@ static Entry* Entry_new(char* path, int type) {
 	self->alpha = 0;
 	return self;
 }
+
+static Entry* Entry_newNamed(char* path, int type, char* displayName) {
+	Entry *self = Entry_new(path, type);
+	self->name = strdup(displayName);
+	return self;
+}
+
 static void Entry_free(Entry* self) {
 	free(self->path);
 	free(self->name);
@@ -435,6 +449,8 @@ static void RecentArray_free(Array* self) {
 static Directory* top;
 static Array* stack; // DirectoryArray
 static Array* recents; // RecentArray
+static Array *quick; // EntryArray
+static Array *quickActions; // EntryArray
 
 static int quit = 0;
 static int can_resume = 0;
@@ -444,7 +460,7 @@ static int simple_mode = 0;
 static int switcher_selected = 0;
 static char slot_path[256];
 static char preview_path[256];
-static int animationdirection = NONE;
+static int animationdirection = 0;
 
 static int restore_depth = -1;
 static int restore_relative = -1;
@@ -487,6 +503,27 @@ static void addRecent(char* path, char* alias) {
 		}
 	}
 	saveRecents();
+}
+
+static Entry* entryFromPakName(char* pak_name)
+{
+	char pak_path[256];
+	// Check in Tools
+	sprintf(pak_path, "%s/Tools/%s/%s.pak/launch.sh", SDCARD_PATH, PLATFORM, pak_name);
+	if(exists(pak_path))
+		return Entry_newNamed(pak_path, ENTRY_PAK, pak_name);
+
+	// Check in Emus
+	sprintf(pak_path, "%s/Emus/%s.pak/launch.sh", PAKS_PATH, pak_name);
+	if(exists(pak_path)) 
+		return Entry_newNamed(pak_path, ENTRY_PAK, pak_name);
+
+	// Check in platform Emus
+	sprintf(pak_path, "%s/Emus/%s/%s.pak/launch.sh", SDCARD_PATH, PLATFORM, pak_name);
+	if(exists(pak_path)) 
+		return Entry_newNamed(pak_path, ENTRY_PAK, pak_name);
+
+	return NULL;
 }
 
 static int hasEmu(char* emu_name) {
@@ -653,12 +690,16 @@ static int hasRoms(char* dir_name) {
 	// if (!has) printf("No roms for %s!\n", dir_name);
 	return has;
 }
-static Array* getRoot(void) {
-    Array* root = Array_new();
 
-    if (CFG_getShowRecents() && hasRecents()) Array_push(root, Entry_new(FAUX_RECENT_PATH, ENTRY_DIR));
+static int hasTools(void) {
+	char tools_path[256];
+    snprintf(tools_path, sizeof(tools_path), "%s/Tools/%s", SDCARD_PATH, PLATFORM);
+	return exists(tools_path);
+}
 
-    Array* entries = Array_new();
+static Array* getRoms()
+{
+	Array* entries = Array_new();
     DIR* dh = opendir(ROMS_PATH);
     if (dh) {
         struct dirent* dp;
@@ -690,7 +731,7 @@ static Array* getRoot(void) {
         Array_free(emus); // Only frees container, entries now owns the items
     }
 
-    // Handle mapping logic
+	// Handle mapping logic
     char map_path[256];
     snprintf(map_path, sizeof(map_path), "%s/map.txt", ROMS_PATH);
     if (entries->count > 0 && exists(map_path)) {
@@ -730,45 +771,94 @@ static Array* getRoot(void) {
         }
     }
 
-    // Handle collections
+	return entries;
+}
+
+static Array* getCollections(void)
+{
+	DIR* dh = opendir(COLLECTIONS_PATH);
+	if (dh) {
+		struct dirent* dp;
+		char full_path[256];
+		snprintf(full_path, sizeof(full_path), "%s/", COLLECTIONS_PATH);
+		char* tmp = full_path + strlen(full_path);
+
+		Array* collections = Array_new();
+		while ((dp = readdir(dh)) != NULL) {
+			if (hide(dp->d_name)) continue;
+			strcpy(tmp, dp->d_name);
+			Array_push(collections, Entry_new(full_path, ENTRY_DIR)); // Collections are fake directories
+		}
+		closedir(dh); // Close immediately after use
+		EntryArray_sort(collections);
+		return collections;
+	}
+	return NULL;
+}
+
+static Array* getQuickEntries(void) {
+	Array* entries = Array_new();
+
+	if (CFG_getShowRecents() && hasRecents())
+		Array_push(entries, Entry_newNamed(FAUX_RECENT_PATH, ENTRY_DIR, "Recents"));
+
+	if (hasCollections())
+		Array_push(entries, Entry_new(COLLECTIONS_PATH, ENTRY_DIR));
+
+	Array_push(entries, Entry_newNamed(ROMS_PATH, ENTRY_DIR, "Games"));
+
+	// Add tools if applicable
+    if (hasTools() && !simple_mode) {
+		char tools_path[256];
+		snprintf(tools_path, sizeof(tools_path), "%s/Tools/%s", SDCARD_PATH, PLATFORM);
+        Array_push(entries, Entry_new(tools_path, ENTRY_DIR));
+    }
+
+	return entries;
+}
+
+static Array* getQuickToggles(void) {
+	Array *entries = Array_new();
+
+	Entry *settings = entryFromPakName("Settings");
+	if (settings)
+		Array_push(entries, settings);
+
+	// quick actions
+	if(WIFI_supported())
+		Array_push(entries, Entry_new("Wifi", ENTRY_DIP));
+	if(PLAT_supportsDeepSleep() && !simple_mode)
+		Array_push(entries, Entry_new("Sleep", ENTRY_DIP));
+	Array_push(entries, Entry_new("Reboot", ENTRY_DIP));
+	Array_push(entries, Entry_new("Poweroff", ENTRY_DIP));
+
+	return entries;
+}
+
+static Array* getRoot(void) {
+    Array* root = Array_new();
+
+    if (CFG_getShowRecents() && hasRecents()) Array_push(root, Entry_new(FAUX_RECENT_PATH, ENTRY_DIR));
+
+	Array *entries = getRoms();
+
+	// Handle collections
     if (hasCollections()) {
         if (entries->count) {
             Array_push(root, Entry_new(COLLECTIONS_PATH, ENTRY_DIR));
         } else { // No visible systems, promote collections to root
-            dh = opendir(COLLECTIONS_PATH);
-            if (dh) {
-                struct dirent* dp;
-                char full_path[256];
-                snprintf(full_path, sizeof(full_path), "%s/", COLLECTIONS_PATH);
-                char* tmp = full_path + strlen(full_path);
-
-                Array* collections = Array_new();
-                while ((dp = readdir(dh)) != NULL) {
-                    if (hide(dp->d_name)) continue;
-                    strcpy(tmp, dp->d_name);
-                    Array_push(collections, Entry_new(full_path, ENTRY_DIR)); // Collections are fake directories
-                }
-                closedir(dh); // Close immediately after use
-                EntryArray_sort(collections);
-
-                for (int i = 0; i < collections->count; i++) {
-                    Array_push(entries, collections->items[i]);
-                }
-                Array_free(collections); // Only free the container, `entries` owns the items now
-            }
+			Array *collections = getCollections();
+			Array_yoink(entries, collections);
         }
     }
 
     // Move entries to root
-    for (int i = 0; i < entries->count; i++) {
-        Array_push(root, entries->items[i]);
-    }
-    Array_free(entries); // `root` now owns the entries
+	Array_yoink(root, entries);
 
-    // Add tools if applicable
-    char tools_path[256];
-    snprintf(tools_path, sizeof(tools_path), "%s/Tools/%s", SDCARD_PATH, PLATFORM);
-    if (exists(tools_path) && !simple_mode) {
+	// Add tools if applicable
+    if (hasTools() && !simple_mode) {
+		char tools_path[256];
+		snprintf(tools_path, sizeof(tools_path), "%s/Tools/%s", SDCARD_PATH, PLATFORM);
         Array_push(root, Entry_new(tools_path, ENTRY_DIR));
     }
 
@@ -1227,6 +1317,25 @@ static void closeDirectory(void) {
 	restore_relative = top->selected;
 }
 
+static void toggleQuick(Entry* self)
+{
+	if(!self)
+		return;
+
+	if(!strcmp(self->name, "Wifi")) {
+		WIFI_enable(!WIFI_enabled());
+	}
+	else if(!strcmp(self->name, "Sleep")) {
+		PWR_deepSleep();
+	}
+	else if(!strcmp(self->name, "Reboot")) {
+		PWR_powerOff(1);
+	}
+	else if(!strcmp(self->name, "Poweroff")) {
+		PWR_powerOff(0);
+	}
+}
+
 static void Entry_open(Entry* self) {
 	recent_alias = self->name;  // yiiikes
 	if (self->type==ENTRY_ROM) {
@@ -1251,6 +1360,9 @@ static void Entry_open(Entry* self) {
 	}
 	else if (self->type==ENTRY_DIR) {
 		openDirectory(self->path, 1);
+	}
+	else if (self->type==ENTRY_DIP) {
+		toggleQuick(self);
 	}
 }
 
@@ -1347,6 +1459,15 @@ static void Menu_quit(void) {
 	DirectoryArray_free(stack);
 }
 
+static void QuickMenu_init(void) {
+	quick = getQuickEntries();
+	quickActions = getQuickToggles();
+}
+static void QuickMenu_quit(void) {
+	EntryArray_free(quick);
+	EntryArray_free(quickActions);
+}
+
 ///////////////////////////////////////
 
 static int dirty = 1;
@@ -1355,7 +1476,7 @@ static int remember_selection = 0;
 ///////////////////////////////////////
 
 enum {
-	NONE = 0,
+	ANIM_NONE = 0,
 	SLIDE_LEFT = 1,
 	SLIDE_RIGHT = 2,
 };
@@ -1848,6 +1969,9 @@ int main (int argc, char *argv[]) {
 	// start my threaded image loader :D
 	initImageLoaderPool();
 	Menu_init();
+	QuickMenu_init();
+	int qm_row = 0;
+	int qm_col = 0;
 	// LOG_info("- menu init: %lu\n", SDL_GetTicks() - main_begin);
 
 	if(exists(GAME_SWITCHER_PERSIST_PATH)) {
@@ -1898,25 +2022,70 @@ int main (int argc, char *argv[]) {
 			
 		int selected = top->selected;
 		int total = top->entries->count;
-		
+		int qm_total = qm_row == 0 ? quick->count : quickActions->count;
+
 		PWR_update(&dirty, &show_setting, NULL, NULL);
 		
 		int is_online = PLAT_isOnline();
 		if (was_online!=is_online) dirty = 1;
 		was_online = is_online;
-		int gsanimdir = NONE;
+		int gsanimdir = ANIM_NONE;
 		
 		if (currentScreen == SCREEN_QUICKMENU) {
 			if (PAD_justPressed(BTN_B) || PAD_tappedMenu(now)) {
-				currentScreen == SCREEN_GAMELIST;
+				currentScreen = SCREEN_GAMELIST;
+				switcher_selected = 0;
 				dirty = 1;
-				if (!HAS_POWER_BUTTON && !simple_mode) PWR_disableSleep();
-				folderbgchanged = 1; // The background painting code is a clusterfuck, just force a repaint here
+			}
+			else if (PAD_justReleased(BTN_A)) {
+				Entry *selected = qm_row == 0 ? quick->items[qm_col] : quickActions->items[qm_col];
+				Entry_open(selected);
+				dirty = 1;
+			}
+			else if (PAD_justPressed(BTN_RIGHT)) {
+				qm_col += 1;
+				if(qm_col >= qm_total) {
+					qm_col = 0;
+				}
+				dirty = 1;
+			}
+			else if (PAD_justPressed(BTN_LEFT)) {
+				qm_col -= 1;
+				if(qm_col < 0) {
+					qm_col = qm_total - 1;
+				}
+				dirty = 1;
+			}
+			else if(PAD_justPressed(BTN_DOWN)) {
+				if(qm_row == 0) {
+					qm_row = 1;
+					qm_col = 0;
+					dirty = 1;
+				}
+			}
+			else if(PAD_justPressed(BTN_UP)) {
+				if(qm_row == 1) {
+					qm_row = 0;
+					qm_col = 0;
+					dirty = 1;
+				}
+			}
+			else if (PAD_justRepeated(BTN_L1) && !PAD_isPressed(BTN_R1) && !PWR_ignoreSettingInput(BTN_L1, show_setting)) {
+			
+			}
+			else if (PAD_justRepeated(BTN_R1) && !PAD_isPressed(BTN_L1) && !PWR_ignoreSettingInput(BTN_R1, show_setting)) {
+			
+			}
+			else if (PAD_justRepeated(BTN_L2) && !PAD_isPressed(BTN_R2) && !PWR_ignoreSettingInput(BTN_L2, show_setting)) {
+			
+			}
+			else if (PAD_justRepeated(BTN_R2) && !PAD_isPressed(BTN_L2) && !PWR_ignoreSettingInput(BTN_R2, show_setting)) {
+			
 			}
 		}
 		else if(currentScreen == SCREEN_GAMESWITCHER) {
 			if (PAD_justPressed(BTN_B) || PAD_justReleased(BTN_SELECT)) {
-				currentScreen == SCREEN_GAMELIST;
+				currentScreen = SCREEN_GAMELIST;
 				switcher_selected = 0;
 				dirty = 1;
 				folderbgchanged = 1; // The background painting code is a clusterfuck, just force a repaint here
@@ -2093,7 +2262,7 @@ int main (int argc, char *argv[]) {
 			SDL_Surface *tmpOldScreen = NULL;
 			SDL_Surface * switcherSur = NULL;
 			// NOTE:22 This causes slowdown when CFG_getMenuTransitions is set to false because animationdirection turns > 0 somewhere but is never set back to 0 and so this code runs on every action, will fix later
-			if(animationdirection != NONE || (lastScreen==SCREEN_GAMELIST && currentScreen == SCREEN_GAMESWITCHER)) {
+			if(animationdirection != ANIM_NONE || (lastScreen==SCREEN_GAMELIST && currentScreen == SCREEN_GAMESWITCHER)) {
 				if(tmpOldScreen) SDL_FreeSurface(tmpOldScreen);
 				tmpOldScreen = GFX_captureRendererToSurface();
 				SDL_SetSurfaceBlendMode(tmpOldScreen,SDL_BLENDMODE_BLEND);
@@ -2136,16 +2305,125 @@ int main (int argc, char *argv[]) {
 
 			int ow = GFX_blitHardwareGroup(screen, show_setting);
 			if (currentScreen == SCREEN_QUICKMENU) {
+				GFX_clearLayers(LAYER_ALL);
+
+				// title pill
+				{
+					int max_width = screen->w - SCALE1(PADDING * 2) - ow;
+					
+					char display_name[256];
+					int text_width = GFX_truncateText(font.large, "Quick Menu", display_name, max_width, SCALE1(BUTTON_PADDING*2));
+					max_width = MIN(max_width, text_width);
+
+					SDL_Surface* text;
+					SDL_Color textColor = uintToColour(THEME_COLOR6_255);
+					text = TTF_RenderUTF8_Blended(font.large, display_name, textColor);
+					GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){
+						SCALE1(PADDING),
+						SCALE1(PADDING),
+						max_width,
+						SCALE1(PILL_SIZE)
+					});
+					SDL_BlitSurface(text, &(SDL_Rect){
+						0,
+						0,
+						max_width-SCALE1(BUTTON_PADDING*2),
+						text->h
+					}, screen, &(SDL_Rect){
+						SCALE1(PADDING+BUTTON_PADDING),
+						SCALE1(PADDING+4)
+					});
+					SDL_FreeSurface(text);
+				}
 				
 				// buttons (duped and trimmed from below)
 				if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
 				else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP",  NULL }, 0, screen, 0);
 				
-				GFX_blitButtonGroup((char*[]){ "B","BACK",  NULL }, 0, screen, 1);
+				GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
+
+				#define MENU_MARGIN_Y 32 // space between main UI elements and quick menu
+				#define MENU_MARGIN_X 40 // space between main UI elements and quick menu
+				#define MENU_ITEM_MARGIN 18 // space between items, top line
+				#define MENU_TOGGLE_MARGIN 8 // space between items, bottom line
+				#define MENU_LINE_MARGIN 8 // space between top and bottom line
+
+				int item_size = screen->h - SCALE1(PADDING + PILL_SIZE + BUTTON_MARGIN + // top pill area
+					MENU_MARGIN_Y + MENU_LINE_MARGIN + PILL_SIZE + MENU_MARGIN_Y + // our own area
+					BUTTON_MARGIN + PILL_SIZE + PADDING); // bottom pill area
+
+				// primary
+				ox = SCALE1(PADDING + MENU_MARGIN_X);
+				oy = SCALE1(PADDING + PILL_SIZE + BUTTON_MARGIN + MENU_MARGIN_Y);
+				for (int c = 0; c < quick->count; c++) {
+					SDL_Rect item_rect = {ox, oy, item_size, item_size};
+					Entry *item = quick->items[c];
+
+					SDL_Color text_color = COLOR_WHITE;
+					uint32_t item_color = THEME_COLOR2;
+
+					if(qm_row == 0 && qm_col == c) {
+						text_color = COLOR_BLACK;
+						item_color = THEME_COLOR1;
+					}
+
+					GFX_blitRectColor(ASSET_STATE_BG, screen, &item_rect, item_color);
+
+					int w, h;
+					GFX_sizeText(font.tiny, item->name, SCALE1(FONT_TINY), &w, &h);
+					SDL_Rect text_rect = {item_rect.x + (item_size - w) / 2, item_rect.y + item_size - h - SCALE1(BUTTON_MARGIN), w, h};
+					GFX_blitText(font.tiny, item->name, SCALE1(FONT_TINY), text_color, screen, &text_rect);
+
+					ox += item_rect.w + SCALE1(MENU_ITEM_MARGIN);
+				}
+
+				// secondary
+				ox = SCALE1(PADDING + MENU_MARGIN_X);
+				ox += (screen->w - SCALE1(PADDING + MENU_MARGIN_X + MENU_MARGIN_X + PADDING) - SCALE1(quickActions->count * PILL_SIZE) - SCALE1((quickActions->count - 1) * MENU_TOGGLE_MARGIN))/2;
+				oy = SCALE1(PADDING + PILL_SIZE + BUTTON_MARGIN + MENU_MARGIN_Y + MENU_LINE_MARGIN) + item_size;
+				for (int c = 0; c < quickActions->count; c++) {
+					SDL_Rect item_rect = {ox, oy, SCALE1(PILL_SIZE), SCALE1(PILL_SIZE)};
+					Entry *item = quickActions->items[c];
+
+					SDL_Color text_color = COLOR_WHITE;
+					uint32_t item_color = THEME_COLOR2;
+					uint32_t icon_color = THEME_COLOR5;
+
+					if(qm_row == 1 && qm_col == c) {
+						text_color = COLOR_BLACK;
+						item_color = THEME_COLOR1;
+					}
+
+					GFX_blitPillColor(ASSET_WHITE_PILL, screen, &item_rect, item_color, RGB_WHITE);
+
+					int asset = ASSET_WIFI;
+					if (!strcmp(item->name,"Wifi"))
+						asset = WIFI_enabled() ? ASSET_WIFI_OFF : ASSET_WIFI;
+					else if (!strcmp(item->name,"Sleep"))
+						asset = ASSET_SUSPEND;
+					else if (!strcmp(item->name,"Reboot"))
+						asset = ASSET_RESTART;
+					else if (!strcmp(item->name,"Poweroff"))
+						asset = ASSET_POWEROFF;
+					else if (!strcmp(item->name,"Settings"))
+						asset = ASSET_SETTINGS;
+
+					SDL_Rect rect;
+					GFX_assetRect(asset, &rect);
+					int x = item_rect.x;
+					int y = item_rect.y;
+					x += (SCALE1(PILL_SIZE) - rect.w) / 2;
+					y += (SCALE1(PILL_SIZE) - rect.h) / 2;
+					
+					GFX_blitAssetColor(asset, NULL, screen, &(SDL_Rect){x,y}, THEME_COLOR5);
+					
+					ox += item_rect.w + SCALE1(MENU_TOGGLE_MARGIN);
+				}
+				lastScreen = SCREEN_QUICKMENU;
 			}
 			else if(startgame) {
 				pilltargetY = +screen->w;
-				animationdirection = NONE;
+				animationdirection = ANIM_NONE;
 				SDL_Surface *tmpsur = GFX_captureRendererToSurface();
 				GFX_clearLayers(LAYER_ALL);
 				GFX_clear(screen);
@@ -2421,7 +2699,7 @@ int main (int argc, char *argv[]) {
 							
 							GFX_flipHidden();
 							GFX_animateSurface(switcherSur,0,0,0,0-screen->h,screen->w,screen->h,CFG_getMenuTransitions() ? 100:20,255,255,LAYER_BACKGROUND);
-							animationdirection = NONE;
+							animationdirection = ANIM_NONE;
 						}
 					}
 					if(lastScreen==SCREEN_OFF) {
@@ -2438,7 +2716,7 @@ int main (int argc, char *argv[]) {
 				lastScreen = SCREEN_GAMELIST;
 			}
 
-			if(animationdirection != NONE && CFG_getMenuTransitions()) {
+			if(animationdirection != ANIM_NONE && CFG_getMenuTransitions()) {
 				GFX_clearLayers(LAYER_BACKGROUND);
 				folderbgchanged = 1;
 				GFX_clearLayers(LAYER_TRANSITION);
@@ -2450,10 +2728,10 @@ int main (int argc, char *argv[]) {
 				if(animationdirection == SLIDE_RIGHT) GFX_animateAndFadeSurface(tmpOldScreen,0,0,0+FIXED_WIDTH,0,FIXED_WIDTH,FIXED_HEIGHT,200,tmpNewScreen,1,0,FIXED_WIDTH,FIXED_HEIGHT,0,255,LAYER_THUMBNAIL);
 				GFX_clearLayers(LAYER_THUMBNAIL);
 				SDL_FreeSurface(tmpNewScreen);
-				animationdirection = NONE;
+				animationdirection = ANIM_NONE;
 			} else {
 				// TODO SEE comment with NOTE:22 ... For now this fixes slowdown, but need to check a better solution probably
-				animationdirection = NONE;
+				animationdirection = ANIM_NONE;
 			}
 
 			if(lastScreen == SCREEN_GAMELIST) {
@@ -2593,7 +2871,7 @@ int main (int argc, char *argv[]) {
 				} 
 			}
 			else {
-				SDL_Delay(100);
+				SDL_Delay(100); // why are we running long delays on the render thread, wtf?
 			}
 			dirty = 0;
 		} 
@@ -2638,6 +2916,7 @@ int main (int argc, char *argv[]) {
 
 	// Why need to do this?
 	// Menu_quit();
+	QuickMenu_quit();
 	PWR_quit();
 	PAD_quit();
 	GFX_quit();

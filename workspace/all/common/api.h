@@ -133,11 +133,15 @@ enum {
 	ASSET_WIFI,
 	ASSET_WIFI_MED,
 	ASSET_WIFI_LOW,
+	ASSET_WIFI_OFF,
 	
 	ASSET_CHECKCIRCLE,
 	ASSET_LOCK,
-
+	ASSET_SETTINGS,
 	ASSET_GAMEPAD,
+	ASSET_POWEROFF,
+	ASSET_RESTART,
+	ASSET_SUSPEND,
 	
 	ASSET_COUNT,
 };
@@ -320,6 +324,7 @@ void GFX_blitPill(int asset, SDL_Surface* dst, SDL_Rect* dst_rect);
 void GFX_blitPillLight(int asset, SDL_Surface* dst, SDL_Rect* dst_rect);
 void GFX_blitPillDark(int asset, SDL_Surface* dst, SDL_Rect* dst_rect);
 void GFX_blitRect(int asset, SDL_Surface* dst, SDL_Rect* dst_rect);
+void GFX_blitRectColor(int asset, SDL_Surface* dst, SDL_Rect* dst_rect, uint32_t asset_color);
 int GFX_blitBattery(SDL_Surface* dst, SDL_Rect* dst_rect);
 int GFX_getButtonWidth(char* hint, char* button);
 void GFX_blitButton(char* hint, char*button, SDL_Surface* dst, SDL_Rect* dst_rect);
@@ -329,6 +334,7 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting);
 void GFX_blitHardwareHints(SDL_Surface* dst, int show_setting);
 int GFX_blitButtonGroup(char** hints, int primary, SDL_Surface* dst, int align_right);
 
+void GFX_assetRect(int asset, SDL_Rect* dst_rect);
 void GFX_sizeText(TTF_Font* font, const char* str, int leading, int* w, int* h);
 void GFX_blitText(TTF_Font* font, const char* str, int leading, SDL_Color color, SDL_Surface* dst, SDL_Rect* dst_rect);
 void GFX_setAmbientColor(const void *data, unsigned width, unsigned height, size_t pitch,int mode);
@@ -435,7 +441,7 @@ int PWR_ignoreSettingInput(int btn, int show_setting);
 void PWR_update(int* dirty, int* show_setting, PWR_callback_t before_sleep, PWR_callback_t after_sleep);
 
 void PWR_disablePowerOff(void);
-void PWR_powerOff(void);
+void PWR_powerOff(int reboot);
 int PWR_isPoweringOff(void);
 
 void PWR_sleep(void);
@@ -601,7 +607,7 @@ void PLAT_getBatteryStatusFine(int* is_charging, int* charge); // 0,1 and 0-100
 void PLAT_enableBacklight(int enable);
 int PLAT_supportsDeepSleep(void);
 int PLAT_deepSleep(void);
-void PLAT_powerOff(void);
+void PLAT_powerOff(int reboot);
 
 void *PLAT_cpu_monitor(void *arg);
 void PLAT_setCPUSpeed(int speed); // enum
